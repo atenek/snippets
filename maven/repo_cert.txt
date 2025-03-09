@@ -1,0 +1,69 @@
+Cертификат нужно добавить в хранилище Java (keystore), которое использует Maven.
+
+1. Посмотреть путь к JDK: 
+
+    File → Settings → Build, Execution, Deployment → Build Tools → Maven → JDK for importer
+
+2. Добавить сертификат в cacerts
+
+   sudo keytool -import -trustcacerts -keystore ${JAVA_HOME}/lib/security/cacerts -storepass changeit -alias repo_CERT -file repo_cert.pem
+   # Пароль по умолчанию: changeit
+
+3.  Перезапустить IntelliJ IDEA и проверить
+
+3.1 Очистить кеш Maven:
+        mvn clean
+        mvn -U install
+
+Вариант с явным указанием        
+    mvn clean install -Djavax.net.ssl.trustStore=/path/to/cacerts -Djavax.net.ssl.trustStorePassword=changeit 
+
+Что проверить?
+    В конфигурации settings.xml ID сервера (id) должен совпадать с ID в pom.xml:
+    <repositories>
+        <repository>
+            <id>internal-repo</id>  <!-- Должно совпадать с id в settings.xml -->
+            <url>https://repo.company.com/repository/maven-public/</url>
+        </repository>
+    </repositories>
+
+совпадает ли id в settings.xml и pom.xml.
+
+Посмотреть текущие параметры JVM
+    Можно проверить, какие trustStore использует Maven:
+        mvn help:effective-settings
+        или
+        mvn -X  # и в отладочном выводе поискать javax.net.ssl.trustStore.
+
+
+Варианты решения: 
+запустить в терминале IntelliJ 
+    mvn help:system | grep trustStore
+  искать вывод     
+    javax.net.ssl.trustStore = /path/to/custom-keystore.jks
+    javax.net.ssl.trustStorePassword = password
+
+Принудительно задать trustStore в IntelliJ
+    File → Settings → Build, Execution, Deployment → Build Tools → Maven
+  В поле VM Options for importer добавить
+   -Djavax.net.ssl.trustStore=/path/to/custom-keystore.jks
+   -Djavax.net.ssl.trustStorePassword=password
+    
+В поле JDK for importer убедитесь, что выбрана та же JDK, что и для Maven в терминале
+    java -version       # JDK в терминале 
+    echo $JAVA_HOME     # путь к JDK:
+      vs
+    File → Settings → Build, Execution, Deployment → Build Tools → Maven  # JDK в IntelliJ
+
+
+Вариант с Envirnment
+    Добавить переменные среды 
+    export MAVEN_OPTS="-Djavax.net.ssl.trustStore=/path/to/custom-keystore.jks -Djavax.net.ssl.trustStorePassword=password"
+
+
+Принудительно указать settings.xml в команде
+    mvn clean install --settings ~/.m2/settings.xml
+
+
+ 
+

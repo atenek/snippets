@@ -1,0 +1,12 @@
+<repositories>
+    <repository>
+        <id>internal-repo</id>
+        <url>https://repo.company.com/repository/maven-public/</url>
+        <releases>
+            <enabled>true</enabled>
+        </releases>
+        <snapshots>
+            <enabled>true</enabled>
+        </snapshots>
+    </repository>
+</repositories>

@@ -1,0 +1,13 @@
+<settings>
+    <servers>
+        <server>
+            <id>internal-repo</id>
+            <configuration>
+                <tlsConfiguration>
+                    <trustStore>/path/to/custom-keystore.jks</trustStore>
+                    <trustStorePassword>password</trustStorePassword>
+                </tlsConfiguration>
+            </configuration>
+        </server>
+    </servers>
+</settings>
