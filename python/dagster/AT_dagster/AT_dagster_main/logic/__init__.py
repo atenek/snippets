@@ -1,18 +1,54 @@
-assets = [Reader_0, Reader_1, Reader_2]
-dag_instance = DagsterInstance.get()
-print("\n🔁 Первый запуск: Dagster выполнит все assets, начиная с Reader_2 -> Reader_1 -> Reader_0\n")
-result = materialize(assets, instance=dag_instance, resources={"my_io_manager": iom})
-assert result.success
-for i in ["2", "1", "0"]:
-    print(f"\nРезультат Reader_{i}:\n", result.output_for_node(f"Reader_{i}"))
-print("\n---\n")
-time.sleep(5)
-print("\n🔁 Второй запуск: Dagster должен пропустить, если всё уже материализовано\n")
-# result2 = materialize(assets,  instance=dag_instance, resources={"my_io_manager": iom})
-result2 = materialize(assets, instance=dag_instance, resources={"my_io_manager": iom})
-assert result2.success
-for i in ["2", "1", "0"]:
-    print(f"\nРезультат Reader_{i}:\n", result2.output_for_node(f"Reader_{i}"))
+from dagster import Definitions, AssetMaterialization, AssetCheckResult, mem_io_manager, InMemoryIOManager
+from dagster._core.storage.fs_io_manager import fs_io_manager
+from .assets import Reader_0, Reader_1, Reader_2, read_root
+from typing import List
+from pathlib import Path
+import hashlib
+import json
+
+# from dagster import IOManager, io_manager
+from dagster import Definitions, mem_io_manager # , memoized_io_manager
+
+class MyCustomIOManager(InMemoryIOManager):
+    def __init__(self, path_prefix):
+        self.path_prefix = path_prefix
+        self.path_prefix.mkdir(exist_ok=True)
+
+    def _get_asset_path(self, asset_key):
+        return self.path_prefix / f"{asset_key.path[-1]}.txt"
+
+    def handle_output(self, context, obj):
+        # context - метаданные (например, имя операции)
+        # obj - данные, которые вернула операция
+        print(f"MyCustomIOManager.handle_output: Запись в PersistStor {context.op_def.name} значение: {obj}")
+        _path = self.path_prefix / f"{context.asset_key.path[-1]}.txt"
+        data = str(obj)
+        _path.write_text(data)
+        data_hash = hashlib.md5(data.encode('utf-8')).hexdigest()
+
+        context.log_event(
+            AssetMaterialization(
+                asset_key=context.asset_key,
+                description=f"Persisted to {_path}",
+                metadata={
+                    "path": data,
+                    "size": len(data.encode('utf-8')),
+                    "hash": data_hash
+                }
+            )
+        )
+
+
+    def load_input(self, context):
+       # context.log_event(AssetMaterialization(asset_key=context.asset_key))
+        # Загружаем данные для следующей операции
+       path = self.path_prefix / f"{context.upstream_output.asset_key.path[-1]}.txt"
+       if not path.exists():
+           raise ValueError(f"Data not found at {path}")
+       return path.read_text()
+
+
+iom = MyCustomIOManager(path_prefix=Path("./io0").resolve())
 
 #defs = Definitions( assets = [Reader_0, Reader_1, Reader_2],
 #                    jobs = [read_root],
