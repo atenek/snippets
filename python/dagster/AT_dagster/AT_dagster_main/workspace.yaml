@@ -1,0 +1,4 @@
+load_from:
+  - python_package:
+      package_name: logic
+      working_directory: /home/sigma.sbrf.ru@21334054/atenek_main/prj/python/AT_dagster
