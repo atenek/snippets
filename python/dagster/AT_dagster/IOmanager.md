@@ -237,4 +237,280 @@ defs = Definitions(
 
 ---
 
-Если хочешь — могу помочь адаптировать это решение для твоего проекта, например, чтобы хранить хеши данных или использовать более сложные проверки актуальности кэша.
+Ниже — **подробное описание последовательности вызовов**, когда ты вызываешь `materialize()` или запускаешь `job` в Dagster. Я покажу:
+
+1. Какие функции вызываются Dagster’ом.
+2. Где строится DAG.
+3. Когда Dagster решает, какие assets запускать.
+4. Где ты можешь «вклиниться» кастомным логированием.
+
+---
+
+## 📌 Цель: понять, **как Dagster строит DAG** и как происходит планирование выполнения
+
+---
+
+## 🔁 Высокоуровневая последовательность
+
+```text
+materialize([...]) или job.execute_in_process()
+
+    ↓
+
+1. Построение AssetGraph (глобальный DAG)
+2. Построение Subset DAG (по выбранным asset’ам)
+3. Проверка метаданных (опционально: с I/O manager’ом или asset checks)
+4. Построение ExecutionPlan
+5. Итеративное выполнение шагов ExecutionPlan
+    └─ IOManager.load_input
+    └─ Вызов функции asset
+    └─ IOManager.handle_output
+```
+
+---
+
+## 🔬 Подробный стек вызовов и этапов
+
+### ▶️ 1. `materialize([...])` — входная точка
+
+```python
+dagster._core.execution.api.materialize()
+```
+
+Это функция-обёртка. Она:
+
+- принимает список assets;
+- вызывает `Definitions.materialize()` — то есть строит `JobDefinition` из asset-графа.
+
+---
+
+### 📦 2. Построение `AssetGraph`
+
+```python
+AssetGraph.from_assets([asset1, asset2, ...])
+```
+
+Это шаг, где Dagster **строит Directed Acyclic Graph** из asset’ов. Он определяет:
+
+- связи `@asset` через параметры функции и `AssetIn(...)`;
+- upstream/downstream зависимости;
+- `source_asset` vs `asset`.
+
+📌 Именно здесь ты можешь **вставить отладку**, если хочешь увидеть связи:
+
+```python
+from dagster._core.definitions.asset_graph import AssetGraph
+graph = AssetGraph.from_assets([asset1, asset2])
+print(graph.asset_dep_graph)
+```
+
+---
+
+### 📚 3. Построение job (если ты используешь materialize)
+
+Dagster внутри вызывает:
+
+```python
+job = define_asset_job("asset_job", selection=["..."])
+```
+
+или
+
+```python
+defs = Definitions(assets=[...])
+defs.get_implicit_job_def_for_assets([...])
+```
+
+И получается `JobDefinition`, основанный на твоём DAG’е.
+
+---
+
+### 🔧 4. Построение ExecutionPlan
+
+```python
+plan = job.get_execution_plan(run_config=..., ...)
+```
+
+Этот этап:
+
+- берёт DAG;
+- делает топологическую сортировку;
+- определяет `ExecutionStep`’ы;
+- для каждого шага — знает какие inputs/outputs и зависимости.
+
+Можно получить доступ к шагам:
+
+```python
+for step in plan.get_steps():
+    print(step.key, step.inputs.keys(), step.outputs.keys())
+```
+
+---
+
+### ▶️ 5. Запуск шагов ExecutionPlan
+
+Dagster исполняет шаги **в порядке топологической сортировки**. Каждый шаг:
+
+1. вызывает `IOManager.load_input()` для всех входов;
+2. вызывает сам asset-функцию;
+3. передаёт результат в `IOManager.handle_output()`.
+
+---
+
+## 👀 Где можно логировать DAG?
+
+### Пример: лог DAG перед выполнением
+
+```python
+from dagster._core.definitions.asset_graph import AssetGraph
+from dagster import AssetKey
+
+graph = AssetGraph.from_assets([a1, a2, a3])
+for asset in graph.assets:
+    parents = graph.get_parents(AssetKey(asset))
+    print(f"{asset} ← {[p.to_string() for p in parents]}")
+```
+
+---
+
+## 🧠 Возможные hook-точки (для дебага DAG)
+
+| Этап                     | Где логировать или вставлять `breakpoint()`            |
+|--------------------------|--------------------------------------------------------|
+| Построение DAG           | `AssetGraph.from_assets(...)`                          |
+| Построение execution plan| `job.get_execution_plan(...)`                          |
+| Выбор шагов              | `plan.get_steps()`                                     |
+| Вызов asset-функции      | Внутри `@asset`, через `context.log.info(...)`         |
+| Загрузка входа           | `IOManager.load_input(...)`                            |
+| Сохранение выхода        | `IOManager.handle_output(...)`                         |
+
+---
+
+## 🛠️ пример, где строится DAG, печатается в консоль, а затем по шагам вызывается выполнение с логами
+
+----
+Отлично. Вот **полный минимальный пример проекта на Dagster**, который:
+
+1. Определяет 3 asset’а с зависимостями (`a → b → c`);
+2. Выводит DAG зависимостей в консоль **до выполнения**;
+3. Логирует каждый вызов `load_input` и `handle_output`;
+4. Показывает, какие asset’ы выполняются и что они делают.
+
+---
+
+## 📁 Структура
+```text
+project/
+├── assets.py
+├── io_manager.py
+└── run.py
+```
+
+---
+
+## 🧱 `assets.py`
+
+```python
+from dagster import asset, AssetExecutionContext
+
+@asset
+def a(context: AssetExecutionContext):
+    context.log.info("Выполняется asset A")
+    return 1
+
+@asset
+def b(context: AssetExecutionContext, a: int):
+    context.log.info(f"Выполняется asset B. Получено a = {a}")
+    return a + 1
+
+@asset
+def c(context: AssetExecutionContext, b: int):
+    context.log.info(f"Выполняется asset C. Получено b = {b}")
+    return b * 2
+```
+
+---
+
+## 💾 `io_manager.py`
+
+```python
+from dagster import IOManager, InputContext, OutputContext
+
+_store = {}
+
+class LoggingIOManager(IOManager):
+    def load_input(self, context: InputContext):
+        key = context.asset_key.to_user_string()
+        context.log.info(f"[IOManager] load_input: {key}")
+        return _store.get(key)
+
+    def handle_output(self, context: OutputContext, obj):
+        key = context.asset_key.to_user_string()
+        context.log.info(f"[IOManager] handle_output: {key} = {obj}")
+        _store[key] = obj
+```
+
+---
+
+## 🚀 `run.py`
+
+```python
+from dagster import Definitions, materialize, FilesystemIOManager
+from assets import a, b, c
+from io_manager import LoggingIOManager
+from dagster._core.definitions.asset_graph import AssetGraph
+from dagster import AssetKey
+
+assets = [a, b, c]
+
+# 1. Построим DAG и выведем его до выполнения
+print("\n=== DAG зависимостей ===")
+graph = AssetGraph.from_assets(assets)
+for asset in graph.assets:
+    key = asset.to_user_string()
+    parents = graph.get_parents(AssetKey(asset))
+    parent_keys = [p.to_user_string() for p in parents]
+    print(f"{key} ← {parent_keys}")
+
+# 2. Выполним asset c, остальные подтянутся
+defs = Definitions(
+    assets=assets,
+    resources={"io_manager": LoggingIOManager()},
+)
+
+# 3. Запуск
+print("\n=== Запуск materialize([c]) ===")
+materialize([c], definitions=defs)
+```
+
+---
+
+## 📜 Пример вывода
+
+```text
+=== DAG зависимостей ===
+a ← []
+b ← ['a']
+c ← ['b']
+
+=== Запуск materialize([c]) ===
+2024-04-11 12:34:56 - Выполняется asset A
+[IOManager] handle_output: a = 1
+2024-04-11 12:34:56 - Выполняется asset B. Получено a = 1
+[IOManager] load_input: a
+[IOManager] handle_output: b = 2
+2024-04-11 12:34:56 - Выполняется asset C. Получено b = 2
+[IOManager] load_input: b
+[IOManager] handle_output: c = 4
+```
+
+---
+
+## 💡 Комментарии
+
+- Если `a` уже был рассчитан ранее — ты можешь эмулировать сохранённое состояние, просто положив в `_store["a"] = ...` заранее.
+- Ты можешь использовать `breakpoint()` в `IOManager` чтобы в рантайме «остановить» выполнение.
+
+---
+
+Хочешь, могу расширить пример с `AssetCheck`, `observable_source_asset` или кастомной логикой dirty-check.
