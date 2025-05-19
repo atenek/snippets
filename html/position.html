@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset="UTF-8">    
+    <title>Positions</title>    
+    <style>
+        html body{
+            padding: 0;
+            border: 0;
+            margin: 0;
+        }      
+        .container {
+            padding: 1px;
+            margin: 1px;
+            border: 1px solid #4957ec;
+            width: 95%;
+        }
+        .box_static {
+          background-color: rgb(238, 214, 184);      
+          box-sizing: border-box;    
+          margin: 2px;
+          border: 2px solid #B25538;
+          padding: 2px;
+          padding-left: 12px;
+        }
+        .box_relative {
+          background-color: rgb(244, 186, 116);
+          position:relative;  
+          top: -15pt;
+          left: 20pt;          
+          border: 2px solid #B25538;
+          padding: 2px;
+          padding-left: 12px;
+        }
+        .box_absolute {
+          background-color: rgb(149, 147, 145);
+          position:absolute;  
+          top: 210pt;
+          left: 800pt;
+          border: 2px solid #B25538;
+          padding: 2px;
+          padding-left: 12px;          
+          opacity: 0.8;
+        }
+        .box_fixed {
+          background-color: rgb(149, 147, 145);
+          position:fixed;  
+          top: 12pt;
+          left: 850pt;
+          border: 2px solid #B25538;
+          padding: 2px;
+          padding-left: 12px;          
+          opacity: 0.8;
+        }       
+    </style>
+  </head>
+
+  <body> 
+    <div class="container" id="container001">  
+        <div class="box_static">Position: static (default)<br>            
+            - Элемент располагается в нормальном потоке документа, как обычный блочный или строчный элемент.<br> 
+            - Свойства top, left, right, bottom игнорируются. <br> 
+            - Элемент занимает место в документе согласно его порядку в HTML и размерам.<br> 
+            - Элемент не позиционируется относительно окна или других элементов.<br><br> 
+        </div>            
+        <div class="box_relative">Position: relative
+            Способ позиционирования элемента относительно его нормального положения в документе.<br> 
+            - Элемент сначала занимает место в документе так же, как при static — то есть в обычном потоке.<br> 
+            - Затем к нему применяются смещения с помощью свойств top, right, bottom, left.<br> 
+            - Эти смещения сдвигают элемент относительно его исходного положения, но не влияют на расположение других элементов (то есть место, которое элемент занимал, остаётся занятым).<br> 
+            - Если смещения не заданы (top: 0, left: 0 и т.п.), элемент выглядит как при position: static.<br><br> 
+        </div>    
+        <div class="box_static">Position: static. Следующий элемент после box2 расположен так как будто box2 не смещен.]</div>    
+        <div class="box_absolute">Position: absolute;<br>  
+            Элемент вырывается из нормального потока документа, не занимает места.<br>  
+            - Другие элементы ведут себя так, как будто его нет.<br> 
+            - Положение задаётся свойствами top, left, right, bottom.<br> 
+            - Ориентир (относительно чего считается top, left и т.п.):<br> 
+            - Если есть ближайший родитель с position ≠ static — используется он.<br> 
+            - Если нет — считается относительно body/вьюпорта окна.<br> 
+        </div>
+        <div class="box_fixed">Position: fixed;<br>  
+            Элемент вырывается из потока документа (как и при absolute).<br>
+            Размещается как элемент с position: absolute <br> 
+            но остаётся на месте при прокрутке страницы.            
+        </div>         
+
+    </div>
+  </body>
+
+</html>
+
