@@ -1,7 +1,0 @@
-load_from:
-  - python_package:
-      package_name: test_package_001
-      working_directory: /home/alex/Prj/2_dev/lbft/AT_dugster/AT_dagster_prj001
-
-
-
