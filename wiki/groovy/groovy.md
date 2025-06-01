@@ -1,1 +1,0 @@
-# Groovy Wiki Start page 

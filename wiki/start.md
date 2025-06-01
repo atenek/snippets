@@ -1,2 +1,0 @@
-# Snippets wiki Start page
-

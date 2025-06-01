@@ -1,3 +1,0 @@
-# Python Wiki Start page 
-
-
