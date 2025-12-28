@@ -1,0 +1,29 @@
+{
+    "version": 1,
+    "disable_existing_loggers": false,
+
+    "formatters": {
+        "artefact_summary_formatter": {
+            "()": "for_logging.ArtefactSummaryFormatter",
+            "datefmt": "%Y-%m-%d %H:%M:%S"
+        }
+    },
+
+    "handlers": {
+        "artefact_summary_handler": {
+            "()": "logging.FileHandler",
+            "level": "DEBUG",
+            "filename": "debug.md",
+            "encoding": "utf-8",
+            "formatter": "artefact_summary_formatter"
+        }
+    },
+
+    "loggers": {
+        "artefact_logger": {
+            "level": "DEBUG",
+            "handlers": ["artefact_summary_handler"],
+            "propagate": false
+        }
+    }
+}
