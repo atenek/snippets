@@ -61,7 +61,7 @@ cat /proc/sys/kernel/core_pattern
 Например:
 
 ```bash
-echo "/tmp/core.%e.%p" | sudo tee /proc/sys/kernel/core_pattern
+ 
 ```
 
 Где:
@@ -147,7 +147,8 @@ echo 1 | sudo tee /proc/sys/fs/suid_dumpable
 
 Например:
 
-```c
+```c 
+cat > fail.c
 int main() {
     int *p = 0;
     *p = 42;
@@ -157,8 +158,8 @@ int main() {
 Скомпилировать и запустить:
 
 ```bash
-gcc test.c -o test
-./test
+gcc -g fail.c -o fail.bin
+./fail.bin
 ```
 
 После падения должен появиться core-файл.
@@ -173,3 +174,4 @@ gcc test.c -o test
 * контейнеры (Docker) → нужны доп. настройки (`--ulimit core=-1`)
 
 ---
+
