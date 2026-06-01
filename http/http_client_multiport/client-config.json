@@ -1,0 +1,22 @@
+[
+  {
+    "comment": "HC endpoint — text/plain ответ, 12 tps",
+    "SRC_IP": "192.168.234.32",
+    "SRC_PORT": "1024..4096",
+    "DST_IP": "192.168.234.32",
+    "DST_PORT": 62224,
+    "path": "/health",
+    "tps": 2,
+    "timeout": 5.0
+  },
+  {
+    "_comment": "Data endpoint — application/json ответ с session vars, 8 tps",
+    "SRC_IP": "192.168.234.32",
+    "SRC_PORT": "1024..4096",
+    "DST_IP": "192.168.234.32",
+    "DST_PORT": 62225,
+    "path": "/data",
+    "tps": 2,
+    "timeout": 5.0
+  }
+]
