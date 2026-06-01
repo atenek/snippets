@@ -1,0 +1,6 @@
+{
+  "tcp:62224": {"mode": "http", "ruleset": "rules_hc-text_200_ok" },
+  "tcp:62225": {"mode": "http", "ruleset": "rules_data-json_200_ok" },
+  "tcp:62226": {"mode": "http", "ruleset": "rules_hc-text_201_ok" },
+  "tcp:62227": {"mode": "http", "ruleset": "rules_data-json_201_ok" }
+}
