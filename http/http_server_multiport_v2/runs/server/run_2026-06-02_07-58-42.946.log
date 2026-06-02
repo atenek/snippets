@@ -1,0 +1,45 @@
+2026-06-02 07:58:42,946  INFO     Log: ./runs/server/run_2026-06-02_07-58-42.946.log
+2026-06-02 07:58:42,949  INFO     MultiPortHTTPServer
+2026-06-02 07:58:42,949  INFO       Management : http://192.168.208.236:62228
+2026-06-02 07:58:42,949  INFO       Port range : 62224-62228
+2026-06-02 07:58:42,950  INFO       Rulesets   : ./rulesets
+2026-06-02 07:58:42,950  INFO       Config     : ./startup-config.json
+2026-06-02 07:58:42,950  INFO       Logs       : ./logs
+2026-06-02 07:58:42,950  INFO     Loaded ruleset 'rules_static_serve' (4 rules) from ./rulesets/rules_static_serve.json
+2026-06-02 07:58:42,950  INFO     Loaded ruleset 'rules_hc-text_200_fail' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,950  INFO     Loaded ruleset 'rules_data-json_200_fail' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,950  INFO     Loaded ruleset 'rules_hc-text_200_maint' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_data-json_200_maint' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_hc-text_200_ok' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_data-json_200_ok' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_hc-text_200_ok_maint' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_data-json_200_ok_maint' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_hc-text_201_fail' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_data-json_201_fail' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_hc-text_201_maint' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_data-json_201_maint' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_hc-text_201_ok' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_data-json_201_ok' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_hc-text_201_ok_maint' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_data-json_201_ok_maint' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_hc-text_500_fail' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_data-json_500_fail' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_hc-text_500_maint' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_data-json_500_maint' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_hc-text_500_ok' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_data-json_500_ok' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_hc-text_500_ok_maint' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,951  INFO     Loaded ruleset 'rules_data-json_500_ok_maint' (2 rules) from ./rulesets/ruleset001.json
+2026-06-02 07:58:42,952  INFO     HTTPService started: http://192.168.208.236:62224 ruleset=rules_hc-text_200_ok
+2026-06-02 07:58:43,052  INFO     TCPEchoService started on port 62225
+2026-06-02 07:58:43,152  INFO     TCPLoggerService started on port 62226, log=./logs/tcp_62226_20260602_075843.log
+2026-06-02 07:58:43,253  INFO     UDPEchoService started on port 62224
+2026-06-02 07:58:43,353  INFO     UDPLoggerService started on port 62225, log=./logs/udp_62225_20260602_075843.log
+2026-06-02 07:58:43,453  INFO     UDPEchoService started on port 62226
+2026-06-02 07:58:43,554  INFO     UDPEchoService started on port 62227
+2026-06-02 07:58:43,654  INFO     Config loaded from ./startup-config.json
+2026-06-02 07:58:43,655  INFO     Ready. Management: http://192.168.208.236:62228
+2026-06-02 07:58:43,655  INFO     Management server started: http://192.168.208.236:62228
+2026-06-02 07:58:51,538  INFO     Received signal 2
+2026-06-02 07:58:51,538  INFO     Shutting down all services...
+2026-06-02 07:58:52,563  INFO     All services stopped

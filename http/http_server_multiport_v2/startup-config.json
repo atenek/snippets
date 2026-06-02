@@ -1,0 +1,25 @@
+{
+  "tcp:62224": {
+    "mode": "http",
+    "ruleset": "rules_hc-text_200_ok"
+  },
+  "tcp:62227": null,
+  "tcp:62225": {
+    "mode": "tcp_echo"
+  },
+  "tcp:62226": {
+    "mode": "tcp_logger"
+  },
+  "udp:62224": {
+    "mode": "udp_echo"
+  },
+  "udp:62225": {
+    "mode": "udp_logger"
+  },
+  "udp:62226": {
+    "mode": "udp_echo"
+  },
+  "udp:62227": {
+    "mode": "udp_echo"
+  }
+}

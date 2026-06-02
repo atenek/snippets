@@ -1,0 +1,651 @@
+[
+  {
+    "name": "rules_hc-text_200_fail",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "response": {
+          "code": 200,
+          "Content-Type": "text/plain",
+          "body": "fail",
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_data-json_200_fail",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/data",
+        "response": {
+          "code": 200,
+          "Content-Type": "application/json",
+          "body": {
+            "src_ip": "$SRC_IP",
+            "src_port": "$SRC_PORT",
+            "dst_ip": "$DST_IP",
+            "dst_port": "$DST_PORT",
+            "hc-status": "200_fail"
+          },
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_hc-text_200_maint",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "response": {
+          "code": 200,
+          "Content-Type": "text/plain",
+          "body": "maint",
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_data-json_200_maint",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/data",
+        "response": {
+          "code": 200,
+          "Content-Type": "application/json",
+          "body": {
+            "src_ip": "$SRC_IP",
+            "src_port": "$SRC_PORT",
+            "dst_ip": "$DST_IP",
+            "dst_port": "$DST_PORT",
+            "hc-status": "200_maint"
+          },
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_hc-text_200_ok",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "response": {
+          "code": 200,
+          "Content-Type": "text/plain",
+          "body": "ok",
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_data-json_200_ok",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/data",
+        "response": {
+          "code": 200,
+          "Content-Type": "application/json",
+          "body": {
+            "src_ip": "$SRC_IP",
+            "src_port": "$SRC_PORT",
+            "dst_ip": "$DST_IP",
+            "dst_port": "$DST_PORT",
+            "hc-status": "200_ok"
+          },
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_hc-text_200_ok_maint",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "response": {
+          "code": 200,
+          "Content-Type": "text/plain",
+          "body": "maint",
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_data-json_200_ok_maint",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/data",
+        "response": {
+          "code": 200,
+          "Content-Type": "application/json",
+          "body": {
+            "src_ip": "$SRC_IP",
+            "src_port": "$SRC_PORT",
+            "dst_ip": "$DST_IP",
+            "dst_port": "$DST_PORT",
+            "hc-status": "200_ok_maint"
+          },
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+
+  {
+    "name": "rules_hc-text_201_fail",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "response": {
+          "code": 201,
+          "Content-Type": "text/plain",
+          "body": "fail",
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_data-json_201_fail",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/data",
+        "response": {
+          "code": 201,
+          "Content-Type": "application/json",
+          "body": {
+            "src_ip": "$SRC_IP",
+            "src_port": "$SRC_PORT",
+            "dst_ip": "$DST_IP",
+            "dst_port": "$DST_PORT",
+            "hc-status": "201_fail"
+          },
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_hc-text_201_maint",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "response": {
+          "code": 201,
+          "Content-Type": "text/plain",
+          "body": "maint",
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_data-json_201_maint",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/data",
+        "response": {
+          "code": 201,
+          "Content-Type": "application/json",
+          "body": {
+            "src_ip": "$SRC_IP",
+            "src_port": "$SRC_PORT",
+            "dst_ip": "$DST_IP",
+            "dst_port": "$DST_PORT",
+            "hc-status": "201_maint"
+          },
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_hc-text_201_ok",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "response": {
+          "code": 201,
+          "Content-Type": "text/plain",
+          "body": "ok",
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_data-json_201_ok",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/data",
+        "response": {
+          "code": 201,
+          "Content-Type": "application/json",
+          "body": {
+            "src_ip": "$SRC_IP",
+            "src_port": "$SRC_PORT",
+            "dst_ip": "$DST_IP",
+            "dst_port": "$DST_PORT",
+            "hc-status": "201_ok"
+          },
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_hc-text_201_ok_maint",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "response": {
+          "code": 201,
+          "Content-Type": "text/plain",
+          "body": "maint",
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_data-json_201_ok_maint",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/data",
+        "response": {
+          "code": 201,
+          "Content-Type": "application/json",
+          "body": {
+            "src_ip": "$SRC_IP",
+            "src_port": "$SRC_PORT",
+            "dst_ip": "$DST_IP",
+            "dst_port": "$DST_PORT",
+            "hc-status": "201_ok_maint"
+          },
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_hc-text_500_fail",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "response": {
+          "code": 500,
+          "Content-Type": "text/plain",
+          "body": "fail",
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_data-json_500_fail",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/data",
+        "response": {
+          "code": 500,
+          "Content-Type": "application/json",
+          "body": {
+            "src_ip": "$SRC_IP",
+            "src_port": "$SRC_PORT",
+            "dst_ip": "$DST_IP",
+            "dst_port": "$DST_PORT",
+            "hc-status": "500_fail"
+          },
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_hc-text_500_maint",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "response": {
+          "code": 500,
+          "Content-Type": "text/plain",
+          "body": "maint",
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_data-json_500_maint",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/data",
+        "response": {
+          "code": 500,
+          "Content-Type": "application/json",
+          "body": {
+            "src_ip": "$SRC_IP",
+            "src_port": "$SRC_PORT",
+            "dst_ip": "$DST_IP",
+            "dst_port": "$DST_PORT",
+            "hc-status": "500_maint"
+          },
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_hc-text_500_ok",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "response": {
+          "code": 500,
+          "Content-Type": "text/plain",
+          "body": "ok",
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_data-json_500_ok",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/data",
+        "response": {
+          "code": 500,
+          "Content-Type": "application/json",
+          "body": {
+            "src_ip": "$SRC_IP",
+            "src_port": "$SRC_PORT",
+            "dst_ip": "$DST_IP",
+            "dst_port": "$DST_PORT",
+            "hc-status": "500_ok"
+          },
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_hc-text_500_ok_maint",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "response": {
+          "code": 500,
+          "Content-Type": "text/plain",
+          "body": "maint",
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "rules_data-json_500_ok_maint",
+    "rules": [
+      {
+        "method": "GET",
+        "path": "/data",
+        "response": {
+          "code": 500,
+          "Content-Type": "application/json",
+          "body": {
+            "src_ip": "$SRC_IP",
+            "src_port": "$SRC_PORT",
+            "dst_ip": "$DST_IP",
+            "dst_port": "$DST_PORT",
+            "hc-status": "500_ok_maint"
+          },
+          "headers": {}
+        }
+      },
+      {
+        "method": "*",
+        "path": "*",
+        "response": {
+          "code": 404,
+          "body": "Not Found",
+          "headers": {}
+        }
+      }
+    ]
+  }
+]

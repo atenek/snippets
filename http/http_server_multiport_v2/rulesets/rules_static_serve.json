@@ -1,0 +1,41 @@
+{
+  "name": "rules_static_serve",
+  "rules": [
+    {
+      "method": "GET",
+      "path": "/download/*",
+      "response": {
+        "service": "static_serve",
+        "files_dir": "./static",
+        "default_rate_kb": 100,
+        "max_rate_kb": 500
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/files",
+      "response": {
+        "service": "static_list",
+        "files_dir": "./static"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "response": {
+        "code": 200,
+        "body": "OK",
+        "headers": {}
+      }
+    },
+    {
+      "method": "*",
+      "path": "*",
+      "response": {
+        "code": 404,
+        "body": "Not Found",
+        "headers": {}
+      }
+    }
+  ]
+}
