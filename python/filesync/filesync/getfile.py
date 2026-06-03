@@ -1,6 +1,6 @@
 """getfile — резервное копирование заданного набора файлов (remote -> local).
 
-Реализация по wiki/todo/getfile.md. Фазы: expand -> metadata -> transfer -> verify
+Реализация по wiki/todo/done/getfile.md. Фазы: expand -> metadata -> transfer -> verify
 -> запись manifest(.json/.csv)+session.json (RO) -> статистика.
 """
 
@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import socket
 import sys
 
 try:
@@ -17,6 +18,11 @@ except ImportError:  # запуск как отдельный скрипт
     import core  # type: ignore
 
 DEFAULT_PATH = "../backup_files/"
+DEFAULT_IGNORE = "./.syncignore"
+
+# тип объекта по символу find (%y) — для записей excluded
+_TYPE_FROM_CHAR = {"d": "directory", "f": "regular_file", "l": "symlink",
+                   "b": "block_device", "c": "char_device", "p": "fifo", "s": "socket"}
 
 
 # --------------------------------------------------------------------------
@@ -45,29 +51,41 @@ def _sanitize_label(label: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "_", label).strip("_")
 
 
-def session_dirname(host: str, label: str) -> str:
+def session_dirname(host: str, prefix: str = "", suffix: str = "") -> str:
+    """Имя сессии: [prefix__]host__ts[__suffix]. Префикс — в начале (сортировка
+    по кластеру/группе), суффикс — в конце."""
     from datetime import datetime
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    base = f"{host}__{ts}"
-    return f"{base}__{label}" if label else base
+    name = f"{host}__{ts}"
+    if prefix:
+        name = f"{_sanitize_label(prefix)}__{name}"
+    if suffix:
+        name = f"{name}__{_sanitize_label(suffix)}"
+    return name
+
+
+# тип объекта для restore.txt (человеко-понятно)
+_TYPE_TAG = {"regular_file": "file", "directory": "dir", "symlink": "link"}
 
 
 def _write_restore_list(manifest: list[dict], path: str) -> None:
-    """Editable-таблица override атрибутов для put: '<perms> <owner> <group> <path>'.
-    Пользователь правит первые три поля ('-' = взять из metadata); путь — остаток
-    строки (допускает пробелы). Файл писать обычным (editable), не RO."""
+    """Editable-список для put: '<type> <perms> <owner> <group> <path>'.
+    type ∈ file|dir|link (информативно). Пользователь правит perms/owner/group
+    ('-' = взять из metadata) и/или удаляет строки (выбор набора); путь — остаток
+    строки (допускает пробелы). Файл editable (не RO)."""
     with open(path, "w", encoding="utf-8") as f:
-        f.write("# filesync restore overrides. Отредактируйте perms/owner/group; '-' = как в metadata.\n")
-        f.write("# Применить: filesync put <session> --apply-list restore.txt --target-root ... --yes\n")
-        f.write("# <perms> <owner> <group> <remote_path>\n")
+        f.write("# filesync restore list для put. Правьте perms/owner/group ('-' = как в metadata);\n")
+        f.write("# удалите строку — объект не будет восстановлен. Контент берётся из files/.\n")
+        f.write("# <type> <perms> <owner> <group> <remote_path>   (type: file|dir|link)\n")
         for rec in manifest:
             s = rec["source"]
-            if s["type"] not in ("regular_file", "directory", "symlink") or not s["metadata_complete"]:
+            tag = _TYPE_TAG.get(s["type"])
+            if tag is None or not s["metadata_complete"]:
                 continue
             perms = "-" if s["type"] == "symlink" else (s["permissions_octal"] or "-")
             owner = s["owner"] or "-"
             group = s["group"] or "-"
-            f.write(f"{perms} {owner} {group} {s['remote_path']}\n")
+            f.write(f"{tag} {perms} {owner} {group} {s['remote_path']}\n")
 
 
 # --------------------------------------------------------------------------
@@ -111,7 +129,7 @@ def _ancestors(path: str) -> list[str]:
     return out
 
 
-def _capture_ancestors(host: str, records: dict) -> None:
+def _capture_ancestors(host: str, records: dict, use_sudo: bool = True, local: bool = False) -> None:
     """Дозаписать в records родительские каталоги всех объектов (для faithful
     восстановления цепочки). Корень '/' не пишем. В payload НЕ кладём —
     только metadata + restore.txt; зеркало создаст их при распаковке детей."""
@@ -124,7 +142,7 @@ def _capture_ancestors(host: str, records: dict) -> None:
     if not wanted:
         return
     anc = sorted(wanted)
-    meta = core.collect_metadata(host, anc)
+    meta = core.collect_metadata(host, anc, use_sudo, local)
     for path, m in zip(anc, meta):
         if path in records:
             continue
@@ -140,7 +158,7 @@ def _verify(rec: dict, files_dir: str, saved_epoch: int, saved_iso: str) -> None
     """Сверка локальной копии с метаданными (см. getfile.md §10)."""
     s, d, c, v = rec["source"], rec["destination"], rec["copy"], rec["verify"]
 
-    if c["status"] in ("not_found", "failed", "no_permission"):
+    if c["status"] in ("not_found", "failed", "no_permission", "excluded"):
         v["status"] = "skipped"
         return
 
@@ -191,7 +209,8 @@ def _verify(rec: dict, files_dir: str, saved_epoch: int, saved_iso: str) -> None
 # Основной поток
 # --------------------------------------------------------------------------
 
-def run(filelist: str, host: str, label: str, base_path: str) -> int:
+def run(filelist: str, host: str, base_path: str, prefix: str = "", suffix: str = "",
+        use_sudo: bool = True, local: bool = False, exclude_file: str | None = None) -> int:
     if not os.path.isfile(filelist):
         print(f"error: filelist not found: {filelist}", file=sys.stderr)
         return 1
@@ -201,7 +220,14 @@ def run(filelist: str, host: str, label: str, base_path: str) -> int:
         print(f"error: filelist is empty: {filelist}", file=sys.stderr)
         return 1
 
-    sess_name = session_dirname(host, _sanitize_label(label))
+    rules = None
+    if exclude_file is not None:
+        if not os.path.isfile(exclude_file):
+            print(f"error: ignore-файл не найден: {exclude_file}", file=sys.stderr)
+            return 1
+        rules = core.load_exclude_rules(exclude_file)
+
+    sess_name = session_dirname(host, prefix, suffix)
     session_dir = os.path.join(base_path, sess_name)
     files_dir = os.path.join(session_dir, "files")
     meta_dir = os.path.join(session_dir, "metadata")
@@ -217,7 +243,8 @@ def run(filelist: str, host: str, label: str, base_path: str) -> int:
 
     # --- expand + metadata --------------------------------------------------
     try:
-        records, not_found, enum_denied, other_errs = core.build_records(host, input_paths)
+        records, not_found, enum_denied, other_errs, excluded = core.build_records(
+            host, input_paths, use_sudo, local, rules)
     except core.RemoteError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -230,7 +257,7 @@ def run(filelist: str, host: str, label: str, base_path: str) -> int:
         _classify(records[path], enum_denied=path in enum_denied)
 
     # родительская цепочка → metadata + restore.txt (не в payload)
-    _capture_ancestors(host, records)
+    _capture_ancestors(host, records, use_sudo, local)
 
     # каталоги, в которые find не смог зайти, но которых нет в stdout -> мин. запись
     for path in enum_denied:
@@ -254,11 +281,19 @@ def run(filelist: str, host: str, label: str, base_path: str) -> int:
             rec["copy"]["status"] = "not_found"
             records[path] = rec
 
+    # исключённые правилами (точки prune) → запись `excluded` (не переносятся)
+    for path, (tch, pat) in excluded.items():
+        rec = core.new_record(host, path)
+        rec["source"]["type"] = _TYPE_FROM_CHAR.get(tch)
+        rec["copy"]["status"] = "excluded"
+        rec["copy"]["error"] = f"excluded by rule: {pat}"
+        records[path] = rec
+
     # --- transfer -----------------------------------------------------------
     if existing:
         for path in existing:
             records[path]["destination"]["in_payload"] = True
-        rc, tar_err = core.transfer_payload(host, existing, payload_path)
+        rc, tar_err = core.transfer_payload(host, existing, payload_path, use_sudo, local)
         if rc != 0 and tar_err.strip():
             # tar мог частично отработать; не фатально — поймаем на verify
             print(f"warning: tar (remote): {tar_err.strip()}", file=sys.stderr)
@@ -280,7 +315,9 @@ def run(filelist: str, host: str, label: str, base_path: str) -> int:
         "schema_version": core.SCHEMA_VERSION,
         "kind": "get",
         "hostname": host,
-        "label": label,
+        "prefix": prefix,
+        "suffix": suffix,
+        "exclude": rules.patterns if rules else [],
         "filelist": os.path.abspath(filelist),
         "session_dir": os.path.abspath(session_dir),
         "payload": payload_name,
@@ -300,7 +337,7 @@ def run(filelist: str, host: str, label: str, base_path: str) -> int:
     # RO — последним шагом: метаданные + payload (getfile.md §9.7)
     core.set_readonly(manifest_json, manifest_csv, session_json, payload_path)
 
-    _print_summary(host, label, session_dir, stats)
+    _print_summary(host, prefix, suffix, session_dir, stats)
     return _exit_code(stats)
 
 
@@ -322,6 +359,7 @@ def _compute_stats(manifest: list[dict], input_set: set[str]) -> dict:
         "dirs_expanded": dirs_expanded,
         "success": by_copy.get("success", 0),
         "metadata_only": by_copy.get("metadata_only", 0),
+        "excluded": by_copy.get("excluded", 0),
         "dirs_unreadable": dirs_unreadable,
         "no_permission": by_copy.get("no_permission", 0),
         "not_found": by_copy.get("not_found", 0),
@@ -333,18 +371,23 @@ def _compute_stats(manifest: list[dict], input_set: set[str]) -> dict:
     }
 
 
-def _print_summary(host: str, label: str, session_dir: str, st: dict) -> None:
+def _print_summary(host: str, prefix: str, suffix: str, session_dir: str, st: dict) -> None:
     line = "=" * 49
     sep = "-" * 49
     print()
     print(line)
     print(f"  Host:    {host}")
-    print(f"  Label:   {label}")
+    if prefix:
+        print(f"  Prefix:  {prefix}")
+    if suffix:
+        print(f"  Suffix:  {suffix}")
     print(f"  Session: {session_dir}")
     print(sep)
     print(f"  Processed:        {st['total']}")
     print(f"    Copied OK:      {st['success']}")
     print(f"    Metadata only:  {st['metadata_only']}")
+    if st.get("excluded"):
+        print(f"    Excluded:       {st['excluded']}   (по правилам ignore)")
     if st["dirs_unreadable"]:
         print(f"    Dir unreadable: {st['dirs_unreadable']}   <-- содержимое могло быть пропущено")
     print(f"    No permission:  {st['no_permission']}")
@@ -377,8 +420,19 @@ def build_parser() -> argparse.ArgumentParser:
         description="Backup заданного набора файлов с удалённого хоста (remote -> local).",
     )
     p.add_argument("filelist", help="путь к локальному файлу со списком удалённых путей")
-    p.add_argument("hostname", help="имя хоста или IP (запись в ~/.ssh/config)")
-    p.add_argument("-m", "--message", default="", help="метка (alias) в имени папки сессии")
+    p.add_argument("hostname", nargs="?", default=None,
+                   help="имя хоста или IP (запись в ~/.ssh/config); опционально при --local")
+    p.add_argument("--local", action="store_true",
+                   help="исполнять локально без SSH (на этой же машине); hostname — только метка")
+    p.add_argument("--prefix", default="",
+                   help="префикс имени сессии (в начале — для сортировки, напр. имя кластера)")
+    p.add_argument("--suffix", default="", help="суффикс имени сессии (в конце)")
+    p.add_argument("--no-sudo", action="store_true",
+                   help="не использовать sudo (бэкап своих файлов; напр. локально без NOPASSWD)")
+    p.add_argument("--exclude", nargs="?", const=DEFAULT_IGNORE, default=None, metavar="FILE",
+                   help=f"подключить правила исключения из FILE (gitignore-стиль; "
+                        f"без значения — {DEFAULT_IGNORE}). Правила не действуют на явно "
+                        f"указанные файлы.")
     p.add_argument("-p", "--path", default=DEFAULT_PATH,
                    help=f"базовая директория для сохранения (default: {DEFAULT_PATH})")
     return p
@@ -386,7 +440,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    return run(args.filelist, args.hostname, args.message, args.path)
+    host = args.hostname
+    if not host:
+        if not args.local:
+            print("error: укажите hostname (или используйте --local)", file=sys.stderr)
+            return 1
+        host = socket.gethostname()  # метка сессии для локального бэкапа
+    return run(args.filelist, host, args.path, args.prefix, args.suffix,
+               use_sudo=not args.no_sudo, local=args.local, exclude_file=args.exclude)
 
 
 if __name__ == "__main__":

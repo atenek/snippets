@@ -1,6 +1,6 @@
 """diffile — дифференциальное сравнение и подтягивание изменений (remote -> local).
 
-Реализация по wiki/todo/diffile.md. Берёт локальную baseline-сессию (вывод get),
+Реализация по wiki/todo/done/diffile.md. Берёт локальную baseline-сессию (вывод get),
 идёт на хост, сравнивает текущее состояние с локальной копией, формирует отчёт
 о расхождениях и подтягивает изменившиеся/новые файлы в новую diff-сессию.
 Baseline не модифицируется.
@@ -160,7 +160,7 @@ def _verify_pulled(rec: dict, files_dir: str, saved_epoch: int, saved_iso: str) 
 # Основной поток
 # --------------------------------------------------------------------------
 
-def run(baseline_session: str, host: str | None, label: str,
+def run(baseline_session: str, host: str | None, prefix: str, suffix: str,
         base_path: str | None, filelist: str | None,
         pull: bool, check_mtime: bool) -> int:
     if not os.path.isdir(baseline_session):
@@ -196,7 +196,7 @@ def run(baseline_session: str, host: str | None, label: str,
                   file=sys.stderr)
 
     # diff-сессия
-    sess_name = getfile.session_dirname(host, getfile._sanitize_label(label)) + "__diff"
+    sess_name = getfile.session_dirname(host, prefix, suffix) + "__diff"
     diff_session = os.path.join(base_path, sess_name)
     files_dir = os.path.join(diff_session, "files")
     meta_dir = os.path.join(diff_session, "metadata")
@@ -210,9 +210,14 @@ def run(baseline_session: str, host: str | None, label: str,
     print(f"Baseline:     {baseline_session}")
     print(f"Host:         {host}")
 
+    # те же правила исключения, что и при снятии baseline (из session.json)
+    excl_pats = baseline_sess.get("exclude") or []
+    rules = core.ExcludeRules(excl_pats) if excl_pats else None
+
     # текущее состояние remote
     try:
-        current, not_found, enum_denied, other_errs = core.build_records(host, input_paths)
+        current, not_found, enum_denied, other_errs, _excluded = core.build_records(
+            host, input_paths, exclude=rules)
     except core.RemoteError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -259,7 +264,7 @@ def run(baseline_session: str, host: str | None, label: str,
     finish_epoch, finish_iso = core.utc_now()
     session = {
         "schema_version": core.SCHEMA_VERSION, "kind": "diff",
-        "hostname": host, "label": label, "payload": payload_name,
+        "hostname": host, "prefix": prefix, "suffix": suffix, "payload": payload_name,
         "baseline_session": os.path.abspath(baseline_session),
         "filelist": os.path.abspath(filelist) if filelist and os.path.isfile(filelist) else filelist,
         "started_at_iso": start_iso, "finished_at_iso": finish_iso, "stats": stats,
@@ -346,7 +351,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("baseline_session", help="путь к локальной сессии getfile (baseline)")
     p.add_argument("hostname", nargs="?", default=None,
                    help="имя хоста (по умолчанию из baseline session.json)")
-    p.add_argument("-m", "--message", default="", help="метка diff-сессии")
+    p.add_argument("--prefix", default="", help="префикс имени diff-сессии (в начале)")
+    p.add_argument("--suffix", default="", help="суффикс имени diff-сессии (в конце, перед __diff)")
     p.add_argument("-p", "--path", default=None, help="базовая директория для diff-сессии")
     p.add_argument("-f", "--filelist", default=None,
                    help="список путей для повторного раскрытия (по умолчанию из baseline)")
@@ -357,7 +363,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     a = build_parser().parse_args(argv)
-    return run(a.baseline_session, a.hostname, a.message, a.path, a.filelist,
+    return run(a.baseline_session, a.hostname, a.prefix, a.suffix, a.path, a.filelist,
                pull=not a.no_pull, check_mtime=a.check_mtime)
 
 

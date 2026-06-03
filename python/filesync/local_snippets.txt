@@ -1,0 +1,2 @@
+/home/alex/Prj/snippets/python/
+# /home/alex/Prj/snippets

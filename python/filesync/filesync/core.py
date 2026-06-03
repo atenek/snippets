@@ -9,13 +9,14 @@
   * единые статусы и обработка недоступности.
 
 Зависимостей вне stdlib нет. Удалённые команды требуют sudo (NOPASSWD),
-см. wiki/todo/getfile.md §13.
+см. wiki/todo/done/getfile.md §13.
 """
 
 from __future__ import annotations
 
 import csv
 import datetime as _dt
+import fnmatch
 import hashlib
 import json
 import os
@@ -33,6 +34,107 @@ SCHEMA_VERSION = "1.0"
 # BatchMode=yes — никаких интерактивных запросов (только ключи из ~/.ssh/config).
 SSH_BASE = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]
 
+def sudo_prefix(use_sudo: bool) -> str:
+    return "sudo -n " if use_sudo else ""
+
+
+# --------------------------------------------------------------------------
+# Правила исключения (ignore), подмножество .gitignore — см. wiki/todo/done/exclude_rules.md
+# --------------------------------------------------------------------------
+
+class ExcludeRules:
+    """Подмножество .gitignore:
+      * bare-имя без '/' (venv, .idea, *.log) — совпадение с ЛЮБЫМ компонентом
+        пути (на любой глубине; «в середине пути»);
+      * хвостовой '/' (venv/) — только если объект каталог;
+      * ведущий '/' (/cache) — якорь к верхнему уровню корня;
+      * globs * ? [] (fnmatch). Без негации и ** (v1).
+    """
+
+    def __init__(self, patterns: list[str]):
+        self.rules: list[tuple[str, str, bool, bool]] = []  # (orig, pat, anchored, dir_only)
+        for raw in patterns:
+            s = raw.strip()
+            if not s or s.startswith("#"):
+                continue
+            orig, anchored = s, s.startswith("/")
+            if anchored:
+                s = s[1:]
+            dir_only = s.endswith("/")
+            if dir_only:
+                s = s.rstrip("/")
+            if s:
+                self.rules.append((orig, s, anchored, dir_only))
+
+    def __bool__(self) -> bool:
+        return bool(self.rules)
+
+    @property
+    def patterns(self) -> list[str]:
+        return [r[0] for r in self.rules]
+
+    def match(self, rel: str, is_dir: bool) -> str | None:
+        """Вернуть исходный паттерн, если `rel` (путь относительно корня) исключён."""
+        comps = [c for c in rel.split("/") if c]
+        if not comps:
+            return None
+        for orig, pat, anchored, dir_only in self.rules:
+            if dir_only and not is_dir:
+                continue
+            if anchored:
+                if fnmatch.fnmatch(comps[0], pat):
+                    return orig
+            elif any(fnmatch.fnmatch(c, pat) for c in comps):
+                return orig
+        return None
+
+
+def load_exclude_rules(path: str) -> ExcludeRules:
+    with open(path, encoding="utf-8") as f:
+        return ExcludeRules(f.read().splitlines())
+
+
+def _root_of(p: str, roots: list[str]) -> str:
+    """Самая длинная запись filelist, являющаяся корнем пути p."""
+    for r in roots:
+        rr = r.rstrip("/")
+        if p == rr or p.startswith(rr + "/"):
+            return rr
+    return ""
+
+
+def _filter_excludes(existing: list[str], types: dict[str, str],
+                     input_paths: list[str], rules: ExcludeRules):
+    """Отфильтровать рекурсивно раскрытые пути по правилам.
+
+    Верхнеуровневые записи filelist (явный выбор) НЕ фильтруются: явный файл —
+    остаётся; явный каталог — корень, его потомки фильтруются. Совпавший каталог
+    прунится вместе с поддеревом. Возвращает (kept, excluded{path:(typechar,pat)}).
+    """
+    input_set = set(p.rstrip("/") for p in input_paths)
+    roots = sorted((p.rstrip("/") for p in input_paths), key=len, reverse=True)
+    kept: list[str] = []
+    excluded: dict[str, tuple[str, str]] = {}
+    active_prune: str | None = None
+    for p in sorted(existing):
+        if p in input_set:
+            kept.append(p)        # явная запись filelist — обход исключений (даже внутри pruned)
+            continue
+        if active_prune is not None and (p == active_prune or p.startswith(active_prune + "/")):
+            continue  # потомок исключённого каталога — отбрасываем молча
+        active_prune = None
+        root = _root_of(p, roots)
+        rel = p[len(root):].lstrip("/") if root else p.lstrip("/")
+        is_dir = types.get(p) == "d"
+        pat = rules.match(rel, is_dir)
+        if pat is None:
+            kept.append(p)
+        else:
+            excluded[p] = (types.get(p, "?"), pat)
+            if is_dir:
+                active_prune = p
+    return kept, excluded
+
 
 class RemoteError(RuntimeError):
     """Ошибка выполнения удалённой команды (на уровне ssh/транспорта)."""
@@ -44,16 +146,18 @@ def run_remote(
     input_bytes: bytes | None = None,
     stdout_path: str | None = None,
     timeout: float | None = None,
+    local: bool = False,
 ) -> tuple[int, bytes, bytes]:
-    """Выполнить команду на удалённом хосте по SSH.
+    """Выполнить команду по SSH (`ssh host cmd`) или локально (`bash -c cmd`).
 
-    `remote_cmd` передаётся как единая строка — её разбирает удалённый shell,
-    поэтому пути внутри неё должны быть уже корректно квотированы (shlex.quote).
+    `remote_cmd` передаётся как единая строка — её разбирает shell, поэтому пути
+    внутри неё должны быть уже корректно квотированы (shlex.quote).
 
-    Если задан `stdout_path` — поток stdout пишется прямо в этот файл (для tar),
-    и в возвращаемом кортеже stdout будет b"".
+    `local=True` — исполнять на этой же машине без SSH (транспорт; задаётся явно,
+    не зависит от строки `host`, которая остаётся лишь меткой/именем сессии).
+    Если задан `stdout_path` — поток stdout пишется прямо в этот файл (для tar).
     """
-    args = SSH_BASE + [host, remote_cmd]
+    args = ["bash", "-c", remote_cmd] if local else SSH_BASE + [host, remote_cmd]
     try:
         if stdout_path is not None:
             with open(stdout_path, "wb") as out:
@@ -96,9 +200,10 @@ def _decode(b: bytes) -> str:
 # --------------------------------------------------------------------------
 
 # find: раскрытие путей (файлы возвращают себя, директории — всё содержимое).
-# mindepth 0 (включая сами стартовые пути) — поведение find по умолчанию,
-# поэтому флаг не указываем: иначе GNU find шлёт warning в stderr.
-_FIND_SCRIPT = 'export LC_ALL=C\nexec find "$@" -print0\n'
+# mindepth 0 (включая стартовые пути) — поведение find по умолчанию.
+# -printf '%y%p\0': первый байт записи — тип (d/f/l/b/c/p/s), далее путь, NUL —
+# разделитель. Тип нужен для правил исключения (dir-only) без лишних stat.
+_FIND_SCRIPT = "export LC_ALL=C\nexec find \"$@\" -printf '%y%p\\0'\n"
 
 # Метаданные: один проход по null-списку путей из stdin.
 # Путь НЕ эхосится обратно — записи выравниваются по порядку входных путей.
@@ -150,33 +255,38 @@ _TYPE_MAP = {
 _FIND_ERR_RE = re.compile(r"^find: '(?P<path>.*)': (?P<msg>.*)$")
 
 
-def expand_paths(host: str, input_paths: list[str]) -> tuple[list[str], set[str], set[str], list[str]]:
+def expand_paths(host: str, input_paths: list[str], use_sudo: bool = True,
+                 local: bool = False, exclude: "ExcludeRules | None" = None):
     """Раскрыть входные пути на remote.
 
-    Возвращает: (existing, not_found, enum_denied, other_errors).
-      existing      — все найденные объекты (файлы + раскрытое содержимое директорий);
+    Возвращает: (existing, not_found, enum_denied, other_errors, excluded).
+      existing      — найденные объекты (после применения правил исключения);
       not_found     — пути, которых нет на remote;
       enum_denied   — каталоги, в которые find не смог зайти даже под sudo;
-      other_errors  — прочие строки ошибок find (для предупреждения).
+      other_errors  — прочие строки ошибок find (для предупреждения);
+      excluded      — {path: (typechar, pattern)} отброшенные правилами (точки prune).
     """
     if not input_paths:
-        return [], set(), set(), []
+        return [], set(), set(), [], {}
 
     cmd = (
-        "sudo -n bash -c " + shlex.quote(_FIND_SCRIPT) + " filesync "
+        sudo_prefix(use_sudo) + "bash -c " + shlex.quote(_FIND_SCRIPT) + " filesync "
         + " ".join(shlex.quote(p) for p in input_paths)
     )
-    rc, out, err = run_remote(host, cmd)
+    rc, out, err = run_remote(host, cmd, local=local)
 
     existing: list[str] = []
+    types: dict[str, str] = {}
     seen: set[str] = set()
     for chunk in out.split(b"\0"):
         if not chunk:
             continue
-        p = _decode(chunk)
+        tch = chunk[:1].decode("ascii", "replace")   # тип: d/f/l/b/c/p/s
+        p = _decode(chunk[1:])
         if p not in seen:
             seen.add(p)
             existing.append(p)
+            types[p] = tch
 
     not_found: set[str] = set()
     enum_denied: set[str] = set()
@@ -199,10 +309,14 @@ def expand_paths(host: str, input_paths: list[str]) -> tuple[list[str], set[str]
     if rc != 0 and not (not_found or enum_denied) and not existing:
         raise RemoteError(f"find failed: {_decode(err).strip()}")
 
-    return existing, not_found, enum_denied, other
+    excluded: dict[str, tuple[str, str]] = {}
+    if exclude:
+        existing, excluded = _filter_excludes(existing, types, input_paths, exclude)
+
+    return existing, not_found, enum_denied, other, excluded
 
 
-def collect_metadata(host: str, paths: list[str]) -> list[dict | None]:
+def collect_metadata(host: str, paths: list[str], use_sudo: bool = True, local: bool = False) -> list[dict | None]:
     """Собрать метаданные для `paths` одним SSH-вызовом.
 
     Возвращает список, выровненный по `paths`: для каждого пути — словарь
@@ -212,8 +326,8 @@ def collect_metadata(host: str, paths: list[str]) -> list[dict | None]:
         return []
 
     payload = b"".join(path_to_bytes(p) + b"\0" for p in paths)
-    cmd = "sudo -n bash -c " + shlex.quote(_META_SCRIPT)
-    rc, out, err = run_remote(host, cmd, input_bytes=payload)
+    cmd = sudo_prefix(use_sudo) + "bash -c " + shlex.quote(_META_SCRIPT)
+    rc, out, err = run_remote(host, cmd, input_bytes=payload, local=local)
 
     records = [r for r in out.split(b"\0") if r != b""]
     result: list[dict | None] = []
@@ -310,16 +424,16 @@ def _stat_time_to_iso(s: str) -> str | None:
 # --absolute-names) — это безопасно (никакой записи по абсолютным путям).
 # payload.tar при этом остаётся пригодным для restore: `tar -x -C /target`.
 
-def transfer_payload(host: str, paths: list[str], payload_path: str) -> tuple[int, str]:
-    """Создать payload.tar потоком `sudo tar` по null-списку `paths`."""
+def transfer_payload(host: str, paths: list[str], payload_path: str, use_sudo: bool = True, local: bool = False) -> tuple[int, str]:
+    """Создать payload.tar потоком `tar` по null-списку `paths`."""
     if not paths:
         return 0, ""
     payload = b"".join(path_to_bytes(p) + b"\0" for p in paths)
     cmd = (
-        "sudo -n tar --create --numeric-owner --sparse --no-recursion "
+        sudo_prefix(use_sudo) + "tar --create --numeric-owner --sparse --no-recursion "
         "--null --files-from=- --file=-"
     )
-    rc, _out, err = run_remote(host, cmd, input_bytes=payload, stdout_path=payload_path)
+    rc, _out, err = run_remote(host, cmd, input_bytes=payload, stdout_path=payload_path, local=local)
     return rc, _decode(err)
 
 
@@ -377,15 +491,17 @@ def new_record(host: str, remote_path: str) -> dict:
     }
 
 
-def build_records(host: str, input_paths: list[str]):
+def build_records(host: str, input_paths: list[str], use_sudo: bool = True,
+                  local: bool = False, exclude: "ExcludeRules | None" = None):
     """Раскрыть пути и собрать метаданные → словарь {remote_path: record}.
 
     Записи содержат заполненный `source` (+ `metadata_complete`); классификация
     `copy.status` остаётся за утилитой (get/diff). Возвращает
-    (records, not_found, enum_denied, other_errors).
+    (records, not_found, enum_denied, other_errors, excluded).
     """
-    existing, not_found, enum_denied, other_errs = expand_paths(host, input_paths)
-    meta = collect_metadata(host, existing)
+    existing, not_found, enum_denied, other_errs, excluded = expand_paths(
+        host, input_paths, use_sudo, local, exclude)
+    meta = collect_metadata(host, existing, use_sudo, local)
     records: dict[str, dict] = {}
     for path, m in zip(existing, meta):
         rec = new_record(host, path)
@@ -393,7 +509,7 @@ def build_records(host: str, input_paths: list[str]):
             rec["source"].update(m)
             rec["source"]["metadata_complete"] = True
         records[path] = rec
-    return records, not_found, enum_denied, other_errs
+    return records, not_found, enum_denied, other_errs, excluded
 
 
 def utc_now() -> tuple[int, str]:

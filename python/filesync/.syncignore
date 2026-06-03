@@ -1,0 +1,9 @@
+.git/
+
+venv/ .venv/ env/
+__pycache__/ *.pyc
+.mypy_cache/ .pytest_cache/
+
+.idea/ .vscode/ .DS_Store
+
+log/ logs/ run/ runs/ cache/ .cache/

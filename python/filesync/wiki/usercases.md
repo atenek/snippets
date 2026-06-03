@@ -1,0 +1,5 @@
+get from HOST1 to HOST_LOCAL1
+diff HOST_LOCAL1 with HOST2
+put HOST_LOCAL1 to HOST3
+
+get from HOST1 to HOST*LOCAL1 -> modify HOST_LOCAL1 to HOST_LOCAL1* -> put HOST*LOCAL1* to HOST4

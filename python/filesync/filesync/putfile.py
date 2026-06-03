@@ -11,7 +11,7 @@
 
 Спец-объекты (устройства/fifo/сокеты) через put не восстанавливаются — только
 вручную из `payload.tar`. Безопасность: --target-root обязателен; '/' только с
---yes; защита от path traversal; запись требует подтверждения. См. wiki/todo/putfile.md.
+--yes; защита от path traversal; запись требует подтверждения. См. wiki/todo/done/putfile.md.
 """
 
 from __future__ import annotations
@@ -47,16 +47,19 @@ def _restore_extractor(rec: dict) -> dict:
 # --------------------------------------------------------------------------
 
 def _parse_restore_list(path: str) -> list[tuple[str, str, str, str]]:
-    """restore.txt -> [(remote_path, perms, owner, group)] в порядке файла."""
+    """restore.txt -> [(remote_path, perms, owner, group)] в порядке файла.
+
+    Формат строки: '<type> <perms> <owner> <group> <path>'. Поле type
+    (file|dir|link) — информативно для пользователя; тип берётся из манифеста."""
     out: list[tuple[str, str, str, str]] = []
     with open(path, encoding="utf-8") as f:
         for line in f:
             if not line.strip() or line.lstrip().startswith("#"):
                 continue
-            parts = line.rstrip("\n").split(None, 3)
-            if len(parts) < 4:
+            parts = line.rstrip("\n").split(None, 4)
+            if len(parts) < 5:
                 continue
-            perms, owner, group, p = parts
+            _type, perms, owner, group, p = parts
             out.append((p, perms, owner, group))
     return out
 

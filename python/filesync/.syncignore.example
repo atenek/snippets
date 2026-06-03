@@ -1,0 +1,26 @@
+# Пример .syncignore для filesync get --exclude (синтаксис в стиле .gitignore).
+# Скопируйте в ./.syncignore и правьте под себя.
+#
+#  bare-имя (venv)   — совпадение с любым компонентом пути на любой глубине
+#  хвостовой '/'     — только каталог (venv/)
+#  ведущий '/'       — якорь к верхнему уровню корня (/cache)
+#  globs * ? []      — поддерживаются;  '!' и '**' — пока нет (v1)
+#
+# Правила НЕ действуют на явно указанный в filelist путь до файла (обход).
+
+# VCS
+.git/ .svn/ .hg/
+
+# Python / окружения
+venv/ .venv/ env/
+__pycache__/ *.pyc
+.mypy_cache/ .pytest_cache/
+
+# Node
+node_modules/
+
+# IDE / ОС
+.idea/ .vscode/ .DS_Store
+
+# логи / runtime / временное
+*.log log/ logs/ run/ runs/ tmp/ cache/ .cache/

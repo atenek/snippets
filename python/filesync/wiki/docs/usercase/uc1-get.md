@@ -12,12 +12,13 @@
    ```
 2. Запустить get:
    ```bash
-   python -m filesync get files.txt 192.168.234.129 -m message -p ./backups/
+   python -m filesync get files.txt 192.168.234.129 --prefix clusterA --suffix message -p ./backups/
    ```
 
 ## Ожидаемый результат (кратко)
 
-Создаётся сессия `./backups/192.168.234.129__<дата>__message/`:
+Создаётся сессия `./backups/clusterA__192.168.234.129__<дата>__message/`
+(имя: `[<prefix>__]<host>__<дата>[__<suffix>]`):
 - `files/` — raw-files-local (browsable-зеркало);
 - `192.168.234.129__<дата>__message.tar` — faithful payload (RO);
 - `restore.txt` — editable override атрибутов (для put);
@@ -33,7 +34,8 @@
 |---|---|---|
 | `filelist` (поз.) | — (обязателен) | локальный файл со списком удалённых путей |
 | `hostname` (поз.) | — (обязателен) | хост из `~/.ssh/config` (здесь `192.168.234.129`) |
-| `-m`, `--message` | `""` (метка в имени папки опускается) | метка сессии |
+| `--prefix` | `""` | префикс имени сессии (в начале — сортировка по кластеру/группе) |
+| `--suffix` | `""` | суффикс имени сессии (в конце) |
 | `-p`, `--path` | `../backup_files/` | базовая папка для сессий |
 
 Минимальный вызов (всё по умолчанию): `python -m filesync get files.txt 192.168.234.129`
