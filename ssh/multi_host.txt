@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+
+import os
+import pty
+import select
+import subprocess
+
+HOSTS_FILE = "hosts_list.txt"
+
+PUBLIC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH... alex@laptop"
+
+REMOTE_CMD = f"""
+mkdir -p ~/.ssh &&
+chmod 700 ~/.ssh &&
+touch ~/.ssh/authorized_keys &&
+chmod 600 ~/.ssh/authorized_keys &&
+grep -qxF '{PUBLIC_KEY}' ~/.ssh/authorized_keys ||
+echo '{PUBLIC_KEY}' >> ~/.ssh/authorized_keys
+"""
+
+def run_ssh(host, user, password):
+    master_fd, slave_fd = pty.openpty()
+
+    proc = subprocess.Popen(
+        [
+            "ssh",
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            f"{user}@{host}",
+            REMOTE_CMD,
+        ],
+        stdin=slave_fd,
+        stdout=slave_fd,
+        stderr=slave_fd,
+        text=False,
+        close_fds=True,
+    )
+
+    os.close(slave_fd)
+
+    password_sent = False
+    output = b""
+
+    while proc.poll() is None:
+        r, _, _ = select.select([master_fd], [], [], 1)
+
+        if not r:
+            continue
+
+        data = os.read(master_fd, 4096)
+
+        if not data:
+            break
+
+        output += data
+
+        if (not password_sent and
+                b"password:" in data.lower()):
+            os.write(master_fd, (password + "\n").encode())
+            password_sent = True
+
+    while True:
+        try:
+            data = os.read(master_fd, 4096)
+            if not data:
+                break
+            output += data
+        except OSError:
+            break
+
+    os.close(master_fd)
+
+    return proc.returncode, output.decode(errors="ignore")
+
+
+with open(HOSTS_FILE, encoding="utf-8") as f:
+    for line in f:
+        line = line.strip()
+
+        if not line or line.startswith("#"):
+            continue
+
+        parts = line.split()
+
+        if len(parts) < 3:
+            print(f"Invalid line: {line}")
+            continue
+
+        host, user, password = parts[:3]
+
+        print(f"\n=== {host} ({user}) ===")
+
+        rc, out = run_ssh(host, user, password)
+
+        if rc == 0:
+            print("OK")
+        else:
+            print(f"FAILED (rc={rc})")
+
+        if out.strip():
+            print(out)
