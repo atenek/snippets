@@ -50,7 +50,7 @@ def _parse_restore_list(path: str) -> list[tuple[str, str, str, str]]:
     """restore.txt -> [(remote_path, perms, owner, group)] в порядке файла.
 
     Формат строки: '<type> <perms> <owner> <group> <path>'. Поле type
-    (file|dir|link) — информативно для пользователя; тип берётся из манифеста."""
+    (d|f|l) — информативно для пользователя; тип берётся из манифеста."""
     out: list[tuple[str, str, str, str]] = []
     with open(path, encoding="utf-8") as f:
         for line in f:

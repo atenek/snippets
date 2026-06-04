@@ -202,7 +202,7 @@ def run(baseline_session: str, host: str | None, prefix: str, suffix: str,
     meta_dir = os.path.join(diff_session, "metadata")
     os.makedirs(files_dir, exist_ok=True)
     os.makedirs(meta_dir, exist_ok=True)
-    payload_name = sess_name + ".tar"
+    payload_name = sess_name.replace("/", "__") + ".tar"
     payload_path = os.path.join(diff_session, payload_name)
 
     start_epoch, start_iso = core.utc_now()

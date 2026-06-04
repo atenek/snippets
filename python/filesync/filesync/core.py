@@ -19,13 +19,112 @@ import datetime as _dt
 import fnmatch
 import hashlib
 import json
+import logging
+import logging.config
 import os
 import re
 import shlex
 import subprocess
+import sys
+import time
 from typing import Iterable
 
 SCHEMA_VERSION = "1.0"
+
+log = logging.getLogger("filesync.core")
+
+
+# --------------------------------------------------------------------------
+# Логирование (logging + dictConfig) — см. wiki/docs/logging.md, wiki/todo/logging.md
+# --------------------------------------------------------------------------
+
+# Имя каталога логов захардкожено — ключами запуска не настраивается (требование ТЗ).
+LOG_DIR_NAME = "logs"
+
+# Корень проекта = родитель пакета filesync/ (этот файл — filesync/core.py).
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# CLI-значение --logging -> числовой уровень logging. NONE = выключено.
+_LOG_LEVELS: dict[str, int | None] = {
+    "NONE": None,
+    "ERROR": logging.ERROR,
+    "WARN": logging.WARNING,
+    "WARNING": logging.WARNING,
+    "INFO": logging.INFO,
+    "DEBUG": logging.DEBUG,
+}
+LOG_CHOICES = ["NONE", "ERROR", "WARN", "WARNING", "INFO", "DEBUG"]
+
+
+def _run_dir_name() -> str:
+    """Имя каталога запуска: run<ГГГГ-ММ-ДД_ЧЧ-ММ-СС>.<мс> (сортируемо, без коллизий)."""
+    now = _dt.datetime.now()
+    return now.strftime("run%Y-%m-%d_%H-%M-%S") + f".{now.microsecond // 1000:03d}"
+
+
+def configure_logging(level: str, *, command: str = "filesync",
+                      log_root: str | None = None) -> str | None:
+    """Настроить логирование набора по выбранному уровню (--logging).
+
+    Зовётся ОДИН раз из main() утилиты, до основной работы. Два хендлера:
+      * file    — полный аудит запуска в logs/run.../<command>.log (уровень = level);
+      * console — только проблемы в stderr (уровень max(level, WARNING)).
+
+    `log_root` — внутренний параметр для тестов (по умолчанию — logs/ в корне
+    проекта); это НЕ CLI-ключ (имя каталога захардкожено).
+
+    Возвращает путь к каталогу запуска (logs/run.../), либо None при NONE.
+    """
+    name = (level or "INFO").upper()
+    lvl = _LOG_LEVELS.get(name, logging.INFO)
+    logging.Formatter.converter = time.gmtime  # время логов — в UTC (как session.json)
+
+    logger = logging.getLogger("filesync")
+    # снять ранее добавленные file/console-хендлеры (NullHandler оставить)
+    for h in list(logger.handlers):
+        if not isinstance(h, logging.NullHandler):
+            logger.removeHandler(h)
+            h.close()
+
+    if lvl is None:  # NONE — каталог не создаём, вывод глушим
+        logger.setLevel(logging.CRITICAL + 1)
+        logger.propagate = False
+        return None
+
+    run_dir = os.path.join(log_root or os.path.join(PROJECT_ROOT, LOG_DIR_NAME),
+                           _run_dir_name())
+    os.makedirs(run_dir, exist_ok=True)
+    log_path = os.path.join(run_dir, f"{command}.log")
+    console_level = max(lvl, logging.WARNING)  # консоль не флудит пер-объектными INFO
+
+    logging.config.dictConfig({
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "plain": {"format": "%(asctime)s %(levelname)s %(name)s: %(message)s"},
+            "detailed": {"format": "%(asctime)s %(levelname)s %(name)s "
+                                   "%(module)s:%(lineno)d: %(message)s"},
+        },
+        "handlers": {
+            "file": {"class": "logging.FileHandler", "filename": log_path,
+                     "encoding": "utf-8", "errors": "backslashreplace",
+                     "formatter": "detailed", "level": logging.getLevelName(lvl)},
+            "console": {"class": "logging.StreamHandler", "stream": "ext://sys.stderr",
+                        "formatter": "plain", "level": logging.getLevelName(console_level)},
+        },
+        "loggers": {
+            "filesync": {"level": logging.getLevelName(lvl),
+                         "handlers": ["file", "console"], "propagate": False},
+        },
+    })
+    log.debug("logging configured: level=%s console=%s dir=%r",
+              name, logging.getLevelName(console_level), run_dir)
+    return run_dir
+
+
+def safe_path(p: str) -> str:
+    """Путь, безопасный для логов: гасит не-UTF8 байты (surrogateescape) в \\xNN."""
+    return p.encode("utf-8", "surrogateescape").decode("utf-8", "backslashreplace")
 
 # --------------------------------------------------------------------------
 # SSH-слой
@@ -54,9 +153,18 @@ class ExcludeRules:
     def __init__(self, patterns: list[str]):
         self.rules: list[tuple[str, str, bool, bool]] = []  # (orig, pat, anchored, dir_only)
         for raw in patterns:
+            # Семантика .gitignore: одна строка = один паттерн. Пробелы внутри —
+            # литеральные (часть имени), НЕ разделители; несколько паттернов через
+            # пробел в одной строке git трактует как одно имя со спейсами и ничего
+            # не матчит. Поэтому правило — по одному паттерну на строку.
             s = raw.strip()
             if not s or s.startswith("#"):
                 continue
+            if " " in s:
+                # почти всегда — попытка задать несколько паттернов в строке (не
+                # как в git). Не матчим молча — предупреждаем (см. exclude_rules.md §10).
+                log.warning("ignore-паттерн содержит пробел и трактуется как одно имя "
+                            "(один паттерн на строку, как в .gitignore): %r", s)
             orig, anchored = s, s.startswith("/")
             if anchored:
                 s = s[1:]
@@ -116,11 +224,17 @@ def _filter_excludes(existing: list[str], types: dict[str, str],
     kept: list[str] = []
     excluded: dict[str, tuple[str, str]] = {}
     active_prune: str | None = None
+    debug = log.isEnabledFor(logging.DEBUG)
     for p in sorted(existing):
         if p in input_set:
             kept.append(p)        # явная запись filelist — обход исключений (даже внутри pruned)
+            if debug:
+                log.debug("exclude: kept %r (явный вход filelist — обход исключений)", safe_path(p))
             continue
         if active_prune is not None and (p == active_prune or p.startswith(active_prune + "/")):
+            if debug:
+                log.debug("exclude: pruned %r (потомок исключённого %r)",
+                          safe_path(p), safe_path(active_prune))
             continue  # потомок исключённого каталога — отбрасываем молча
         active_prune = None
         root = _root_of(p, roots)
@@ -129,10 +243,15 @@ def _filter_excludes(existing: list[str], types: dict[str, str],
         pat = rules.match(rel, is_dir)
         if pat is None:
             kept.append(p)
+            if debug:
+                log.debug("exclude: kept %r (rel=%r — нет совпадения)", safe_path(p), rel)
         else:
             excluded[p] = (types.get(p, "?"), pat)
             if is_dir:
                 active_prune = p
+            if debug:
+                log.debug("exclude: excluded %r (rel=%r rule=%r%s)",
+                          safe_path(p), rel, pat, ", prune" if is_dir else "")
     return kept, excluded
 
 
@@ -309,9 +428,15 @@ def expand_paths(host: str, input_paths: list[str], use_sudo: bool = True,
     if rc != 0 and not (not_found or enum_denied) and not existing:
         raise RemoteError(f"find failed: {_decode(err).strip()}")
 
+    log.debug("expand: входов=%d, найдено=%d, find rc=%d, not_found=%d, enum_denied=%d",
+              len(input_paths), len(existing), rc, len(not_found), len(enum_denied))
+
     excluded: dict[str, tuple[str, str]] = {}
     if exclude:
+        before = len(existing)
         existing, excluded = _filter_excludes(existing, types, input_paths, exclude)
+        log.debug("expand: после фильтра исключений оставлено=%d, исключено=%d (было %d)",
+                  len(existing), len(excluded), before)
 
     return existing, not_found, enum_denied, other, excluded
 

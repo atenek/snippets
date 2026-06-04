@@ -8,4 +8,12 @@
 Общее ядро — модуль `core`. Контракт обмена — manifest.json/csv.
 """
 
+import logging
+
+# Дисциплина библиотеки: набор не настраивает логирование на импорте, только
+# точка входа (main → core.configure_logging). NullHandler гасит предупреждение
+# «No handlers could be found», если core используют как библиотеку. См.
+# wiki/docs/logging.md.
+logging.getLogger("filesync").addHandler(logging.NullHandler())
+
 __version__ = "0.1.0"

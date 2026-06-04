@@ -19,6 +19,10 @@
 - [usercases/](usercases/) — краткие кейсы (get / diff / put / get→правка→put): команды, результат, ключи и дефолты.
 - [step_by_step.md](step_by_step.md) — подробный поток: забрать → отредактировать (контент в `files/` + права/владелец/группа в `restore.txt`) → накатить.
 
+## Конвенции
+
+- [logging.md](logging.md) — конвенция логирования набора (`logging` + dictConfig, уровни, потоки, ключ `--logging`). ТЗ на реализацию — [../todo/logging.md](../todo/logging.md).
+
 ## На будущее (спроектировано, реализация позже)
 
 - [opt_attr_fast_path.md](../todo/opt_attr_fast_path.md) — оптимизация put: заливать только изменённый контент, неизменённый брать из payload.

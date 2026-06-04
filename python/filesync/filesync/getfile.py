@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import re
 import socket
@@ -19,6 +20,9 @@ except ImportError:  # запуск как отдельный скрипт
 
 DEFAULT_PATH = "../backup_files/"
 DEFAULT_IGNORE = "./.syncignore"
+DEFAULT_LOGGING = "INFO"
+
+log = logging.getLogger("filesync.getfile")
 
 # тип объекта по символу find (%y) — для записей excluded
 _TYPE_FROM_CHAR = {"d": "directory", "f": "regular_file", "l": "symlink",
@@ -47,36 +51,55 @@ def read_filelist(path: str) -> list[str]:
     return out
 
 
-def _sanitize_label(label: str) -> str:
-    return re.sub(r"[^A-Za-z0-9._-]+", "_", label).strip("_")
+def _sanitize_segment(seg: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", seg).strip("_")
+
+
+def _sanitize_path(s: str) -> str:
+    """prefix/suffix: '/' сохраняется (создаёт вложенные каталоги), каждый компонент
+    чистится; пустые и `.`/`..` отбрасываются (защита от выхода за base)."""
+    comps = [_sanitize_segment(c) for c in s.split("/")]
+    comps = [c for c in comps if c and c not in (".", "..")]
+    return "/".join(comps)
+
+
+def _attach(base: str, frag: str, before: bool) -> str:
+    """Присоединить prefix/suffix к base. Есть '/' в frag → создаём каталоги
+    (через '/'); нет '/' → склейка через '__' (без новой папки — можно писать
+    прямо в --path)."""
+    sep = "/" if "/" in frag else "__"
+    f = _sanitize_path(frag)
+    if not f:
+        return base
+    return f"{f}{sep}{base}" if before else f"{base}{sep}{f}"
 
 
 def session_dirname(host: str, prefix: str = "", suffix: str = "") -> str:
-    """Имя сессии: [prefix__]host__ts[__suffix]. Префикс — в начале (сортировка
-    по кластеру/группе), суффикс — в конце."""
+    """Путь сессии относительно --path:
+      * без '/' в prefix/suffix — одна папка `[<prefix>__]<host>__<ts>[__<suffix>]`
+        прямо в --path;
+      * со '/' — вложенные каталоги (древовидная структура).
+    Компоненты санитизируются; `.`/`..` отбрасываются."""
     from datetime import datetime
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    name = f"{host}__{ts}"
-    if prefix:
-        name = f"{_sanitize_label(prefix)}__{name}"
-    if suffix:
-        name = f"{name}__{_sanitize_label(suffix)}"
+    name = _attach(f"{host}__{ts}", prefix, before=True)
+    name = _attach(name, suffix, before=False)
     return name
 
 
-# тип объекта для restore.txt (человеко-понятно)
-_TYPE_TAG = {"regular_file": "file", "directory": "dir", "symlink": "link"}
+# тип объекта для restore.txt: 1 символ (как у find %y) — d/f/l
+_TYPE_TAG = {"regular_file": "f", "directory": "d", "symlink": "l"}
 
 
 def _write_restore_list(manifest: list[dict], path: str) -> None:
     """Editable-список для put: '<type> <perms> <owner> <group> <path>'.
-    type ∈ file|dir|link (информативно). Пользователь правит perms/owner/group
-    ('-' = взять из metadata) и/или удаляет строки (выбор набора); путь — остаток
-    строки (допускает пробелы). Файл editable (не RO)."""
+    type ∈ d|f|l (d=dir, f=file, l=symlink; информативно). Пользователь правит
+    perms/owner/group ('-' = взять из metadata) и/или удаляет строки (выбор набора);
+    путь — остаток строки (допускает пробелы). Файл editable (не RO)."""
     with open(path, "w", encoding="utf-8") as f:
         f.write("# filesync restore list для put. Правьте perms/owner/group ('-' = как в metadata);\n")
         f.write("# удалите строку — объект не будет восстановлен. Контент берётся из files/.\n")
-        f.write("# <type> <perms> <owner> <group> <remote_path>   (type: file|dir|link)\n")
+        f.write("# <type> <perms> <owner> <group> <remote_path>   (type: d=dir f=file l=symlink)\n")
         for rec in manifest:
             s = rec["source"]
             tag = _TYPE_TAG.get(s["type"])
@@ -212,20 +235,25 @@ def _verify(rec: dict, files_dir: str, saved_epoch: int, saved_iso: str) -> None
 def run(filelist: str, host: str, base_path: str, prefix: str = "", suffix: str = "",
         use_sudo: bool = True, local: bool = False, exclude_file: str | None = None) -> int:
     if not os.path.isfile(filelist):
+        log.error("filelist not found: %r", filelist)
         print(f"error: filelist not found: {filelist}", file=sys.stderr)
         return 1
 
     input_paths = read_filelist(filelist)
     if not input_paths:
+        log.error("filelist is empty: %r", filelist)
         print(f"error: filelist is empty: {filelist}", file=sys.stderr)
         return 1
+    log.debug("filelist: %d путей после дедупликации", len(input_paths))
 
     rules = None
     if exclude_file is not None:
         if not os.path.isfile(exclude_file):
+            log.error("ignore-файл не найден: %r", exclude_file)
             print(f"error: ignore-файл не найден: {exclude_file}", file=sys.stderr)
             return 1
         rules = core.load_exclude_rules(exclude_file)
+        log.debug("загружено правил исключения: %d из %r", len(rules.patterns), exclude_file)
 
     sess_name = session_dirname(host, prefix, suffix)
     session_dir = os.path.join(base_path, sess_name)
@@ -234,21 +262,27 @@ def run(filelist: str, host: str, base_path: str, prefix: str = "", suffix: str 
     os.makedirs(files_dir, exist_ok=True)
     os.makedirs(meta_dir, exist_ok=True)
     # имя payload дублирует имя сессии (host__date__message) — см. README/step_by_step
-    payload_name = sess_name + ".tar"
+    # имя payload самоописательное: путь сессии «сплющен» в одно имя
+    payload_name = sess_name.replace("/", "__") + ".tar"
     payload_path = os.path.join(session_dir, payload_name)
 
     start_epoch, start_iso = core.utc_now()
     print(f"Session: {session_dir}")
     print(f"Host:    {host}   |   items in list: {len(input_paths)}")
+    log.info("session start host=%s items=%d dir=%r transport=%s sudo=%s exclude=%s",
+             host, len(input_paths), core.safe_path(session_dir),
+             "local" if local else "ssh", use_sudo, bool(rules))
 
     # --- expand + metadata --------------------------------------------------
     try:
         records, not_found, enum_denied, other_errs, excluded = core.build_records(
             host, input_paths, use_sudo, local, rules)
     except core.RemoteError as exc:
+        log.error("remote failed: %s", exc)
         print(f"error: {exc}", file=sys.stderr)
         return 1
     for line in other_errs:
+        log.warning("find: %s", line)
         print(f"warning: {line}", file=sys.stderr)
 
     input_set = set(input_paths)        # для статистики dirs_expanded
@@ -296,10 +330,14 @@ def run(filelist: str, host: str, base_path: str, prefix: str = "", suffix: str 
         rc, tar_err = core.transfer_payload(host, existing, payload_path, use_sudo, local)
         if rc != 0 and tar_err.strip():
             # tar мог частично отработать; не фатально — поймаем на verify
+            log.warning("tar (remote): %s", tar_err.strip())
             print(f"warning: tar (remote): {tar_err.strip()}", file=sys.stderr)
         ec, ex_err = core.extract_payload(payload_path, files_dir)
         if ec != 0 and ex_err.strip():
+            log.warning("tar (local extract): %s", ex_err.strip())
             print(f"warning: tar (local extract): {ex_err.strip()}", file=sys.stderr)
+        log.debug("transfer: tar объектов=%d -> payload; create rc=%d; extract rc=%d",
+                  len(existing), rc, ec)
 
     # --- verify -------------------------------------------------------------
     saved_epoch, saved_iso = core.utc_now()
@@ -308,6 +346,7 @@ def run(filelist: str, host: str, base_path: str, prefix: str = "", suffix: str 
 
     # --- запись -------------------------------------------------------------
     manifest = [records[p] for p in sorted(records)]
+    _log_records(manifest)
     stats = _compute_stats(manifest, input_set)
     finish_epoch, finish_iso = core.utc_now()
 
@@ -338,7 +377,53 @@ def run(filelist: str, host: str, base_path: str, prefix: str = "", suffix: str 
     core.set_readonly(manifest_json, manifest_csv, session_json, payload_path)
 
     _print_summary(host, prefix, suffix, session_dir, stats)
-    return _exit_code(stats)
+    rc = _exit_code(stats)
+    log.info("session done total=%d ok=%d meta=%d excluded=%d no_perm=%d not_found=%d "
+             "failed=%d verify_mismatch=%d exit=%d", stats["total"], stats["success"],
+             stats["metadata_only"], stats["excluded"], stats["no_permission"],
+             stats["not_found"], stats["failed"], stats["verify_mismatch"], rc)
+    return rc
+
+
+# тип объекта для коротких записей лога: f/d/l (как у find %y)
+_TAG_FROM_TYPE = {"regular_file": "f", "directory": "d", "symlink": "l"}
+
+
+def _log_records(manifest: list[dict]) -> None:
+    """Пер-объектные записи в лог (карта событий — wiki/todo/logging.md §8).
+
+    INFO — факт сохранения/исключения; WARNING — ограничения источника
+    (нет прав / не найден / каталог не перечислить); ERROR — нарушения целостности
+    (сбой / отсутствует после распаковки / md5 не совпал)."""
+    if not log.isEnabledFor(logging.ERROR):
+        return  # логирование отключено (--logging NONE) — не тратимся на проход
+    for rec in manifest:
+        s, c, v = rec["source"], rec["copy"], rec["verify"]
+        rp = core.safe_path(s["remote_path"])
+        tag = _TAG_FROM_TYPE.get(s["type"], "?")
+        st = c["status"]
+        if st == "success":
+            log.info("saved %s %r", tag, rp)
+        elif st == "metadata_only":
+            if s["type"] == "directory" and s["contents_enumerated"] is False:
+                log.warning("directory unreadable (contents skipped): %r", rp)
+            else:
+                log.info("saved %s %r (metadata only)", tag, rp)
+        elif st == "excluded":
+            log.info("excluded %r (%s)", rp, c["error"])
+        elif st == "no_permission":
+            log.warning("no permission: %r (%s)", rp, c["unreadable_reason"])
+        elif st == "not_found":
+            log.warning("not found: %r", rp)
+        elif st == "failed":
+            log.error("failed: %r (%s)", rp, c["error"])
+        # верификация целостности
+        vs = v["status"]
+        if vs == "md5_mismatch":
+            log.error("verify md5 mismatch: %r%s", rp,
+                      f" ({v['error']})" if v.get("error") else "")
+        elif vs == "missing":
+            log.error("verify missing: %r", rp)
 
 
 def _compute_stats(manifest: list[dict], input_set: set[str]) -> dict:
@@ -435,19 +520,32 @@ def build_parser() -> argparse.ArgumentParser:
                         f"указанные файлы.")
     p.add_argument("-p", "--path", default=DEFAULT_PATH,
                    help=f"базовая директория для сохранения (default: {DEFAULT_PATH})")
+    p.add_argument("--logging", default=DEFAULT_LOGGING, type=str.upper,
+                   choices=core.LOG_CHOICES, metavar="LEVEL",
+                   help=f"уровень логирования: {'|'.join(core.LOG_CHOICES)} "
+                        f"(default: {DEFAULT_LOGGING}). Логи — в logs/run.../getfile.log; "
+                        f"консоль (stderr) — только WARNING+.")
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    run_dir = core.configure_logging(args.logging, command="getfile")
+    if run_dir:
+        print(f"Logs:    {run_dir}")
     host = args.hostname
     if not host:
         if not args.local:
+            log.error("hostname не указан и не задан --local")
             print("error: укажите hostname (или используйте --local)", file=sys.stderr)
             return 1
         host = socket.gethostname()  # метка сессии для локального бэкапа
-    return run(args.filelist, host, args.path, args.prefix, args.suffix,
-               use_sudo=not args.no_sudo, local=args.local, exclude_file=args.exclude)
+    try:
+        return run(args.filelist, host, args.path, args.prefix, args.suffix,
+                   use_sudo=not args.no_sudo, local=args.local, exclude_file=args.exclude)
+    except Exception:
+        log.exception("необработанная ошибка get")
+        raise
 
 
 if __name__ == "__main__":

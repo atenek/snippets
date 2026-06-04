@@ -32,8 +32,8 @@ python -m filesync get files.txt 192.168.234.129 --suffix message -p ./backups/
 ```
 
 Появляется сессия `backups/192.168.234.129__2026-06-03_07-23-08__message/`
-(имя: `[<prefix>__]<host>__<дата>[__<suffix>]` — `--prefix` удобен для сортировки
-по кластеру/группе):
+(без `/` — одна папка `[<prefix>__]<host>__<дата>[__<suffix>]` в `--path`; со `/`
+в `--prefix`/`--suffix` — дерево бэкапов, напр. `--prefix cluster/nodeA`):
 
 ```
 192.168.234.129__2026-06-03_07-23-08__message/
@@ -51,17 +51,18 @@ python -m filesync get files.txt 192.168.234.129 --suffix message -p ./backups/
 видит тип и текущее состояние, меняет только нужное:
 
 ```
-# <type> <perms> <owner> <group> <remote_path>   (type: file|dir|link; '-' = как в metadata)
-dir  0775 atenek atenek /tmp/sbs_src
-file 0644 atenek atenek /tmp/sbs_src/doc.txt
-file 0644 atenek atenek /tmp/sbs_src/g.conf
-file 0644 atenek atenek /tmp/sbs_src/o.conf
-file 0600 atenek atenek /tmp/sbs_src/p.conf
+# <type> <perms> <owner> <group> <remote_path>   (type: d=dir f=file l=symlink; '-' = как в metadata)
+d 0775 atenek atenek /tmp/sbs_src
+f 0644 atenek atenek /tmp/sbs_src/doc.txt
+f 0644 atenek atenek /tmp/sbs_src/g.conf
+f 0644 atenek atenek /tmp/sbs_src/o.conf
+f 0600 atenek atenek /tmp/sbs_src/p.conf
 ```
 
 Формат: **тип + три поля + путь-остаток** (путь может содержать пробелы; имена
-пользователей/групп — нет, поэтому разбор однозначен). `type` (file|dir|link) —
-информативный (тип при накате берётся из metadata). `-` в поле = «как в metadata».
+пользователей/групп — нет, поэтому разбор однозначен). `type` — 1 символ
+`d`/`f`/`l` (dir/file/symlink), информативный (тип при накате берётся из metadata).
+`-` в поле = «как в metadata».
 
 ---
 
@@ -83,11 +84,11 @@ echo "EDITED LOCALLY by user" > "$SESS/files/tmp/sbs_src/doc.txt"
 `restore.txt` после правки:
 
 ```
-dir  0775 atenek atenek  /tmp/sbs_src
-file 0644 atenek atenek  /tmp/sbs_src/doc.txt
-file 0644 atenek nogroup /tmp/sbs_src/g.conf
-file 0644 nobody atenek  /tmp/sbs_src/o.conf
-file 0640 atenek atenek  /tmp/sbs_src/p.conf
+d 0775 atenek atenek  /tmp/sbs_src
+f 0644 atenek atenek  /tmp/sbs_src/doc.txt
+f 0644 atenek nogroup /tmp/sbs_src/g.conf
+f 0644 nobody atenek  /tmp/sbs_src/o.conf
+f 0640 atenek atenek  /tmp/sbs_src/p.conf
 ```
 
 Это **весь** объём действий пользователя: один файл с тремя полями + правка

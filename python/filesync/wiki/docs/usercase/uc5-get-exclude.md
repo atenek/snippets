@@ -8,11 +8,19 @@
 
 1. Создать ignore-файл (по умолчанию `./.syncignore`) в стиле `.gitignore`:
    ```
-   # .syncignore
-   venv/ .venv/ node_modules/
-   __pycache__/ *.pyc
-   .idea/ .vscode/
-   *.log log/ run/ runs/ tmp/
+   # .syncignore — один паттерн на строку (как в .gitignore)
+   venv/
+   .venv/
+   node_modules/
+   __pycache__/
+   *.pyc
+   .idea/
+   .vscode/
+   *.log
+   log/
+   run/
+   runs/
+   tmp/
    ```
 2. В filelist указать **корневые папки** (и при желании отдельные файлы):
    ```

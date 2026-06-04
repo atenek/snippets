@@ -1,8 +1,9 @@
-"""Единый вход набора filesync: подкоманды get | diff | put.
+"""Единый вход набора filesync: подкоманды get | diff | put (см. wiki/todo/architecture.md).
 
-Реализовано: get. diff/put — после их разработки (см. wiki/todo/architecture.md §2).
 Использование:
-    python -m filesync get <filelist> <hostname> [-m M] [-p P]
+    python -m filesync get  <filelist> <hostname> [--prefix P] [--suffix S] [--exclude [FILE]] ...
+    python -m filesync diff <baseline_session> [hostname] ...
+    python -m filesync put  <session> [hostname] --target-root ROOT ...
 """
 
 from __future__ import annotations
