@@ -1,0 +1,36 @@
+{
+  "storage": "data",
+  "defaults": {
+    "interval": 0.5,
+    "timeout": 1.0
+  },
+  "endpoints": [
+    {
+      "name": "lb_os",
+      "ip": "127.0.0.1",
+      "port": 8731,
+      "path": "/metrics",
+      "interval": 0.5,
+      "timeout": 1.0
+    },
+    {
+      "name": "lb_kd",
+      "ip": "127.0.0.1",
+      "port": 8731,
+      "path": "/keepalive",
+      "interval": 0.5
+    },
+    {
+      "name": "lb_bgp",
+      "ip": "127.0.0.1",
+      "port": 8731,
+      "path": "/bgp"
+    },
+    {
+      "name": "lb_plain",
+      "ip": "127.0.0.1",
+      "port": 8731,
+      "path": "/plain"
+    }
+  ]
+}
