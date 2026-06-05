@@ -6,9 +6,11 @@
 Скрипт параллельно (asyncio + aiohttp, один процесс) опрашивает несколько
 серверных узлов/endpoint'ов, описанных в settings.json, и для каждого endpoint'а
 сохраняет:
-  - <...>.csv        — метрики в табличном виде (timestamp + колонки метрик);
-  - <...>.raw.txt    — все сырые тела HTTP-ответов с временем запроса/ответа;
-  - <...>.summary.txt — человекочитаемую статистику запуска.
+  - <...>.csv                 — метрики в табличном виде (timestamp + колонки);
+  - <...>.raw.txt             — все сырые тела HTTP-ответов с временем запроса/ответа;
+  - <...>.run_summary.txt     — параметры запуска (человекочитаемо);
+  - <...>.metrics_summary.csv — статистику по каждой метрике
+                                (hits, is_zero, is_const, min, max).
 
 Все файлы запуска складываются во вложенную папку с именем, содержащим RUN_ID,
 а также опциональные --prefix / --suffix.
@@ -95,6 +97,70 @@ def join_name(*parts: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# Статистика по отдельной метрике
+# --------------------------------------------------------------------------- #
+
+class MetricStat:
+    """
+    Накапливает статистику значений одной метрики за весь прогон:
+      hits     — сколько раз метрика была получена;
+      is_const — значение было постоянным всё время;
+      is_zero  — значение было постоянным и строго равным нулю;
+      is_num   — все значения были числовыми (F — было хотя бы одно нечисловое,
+                 например NaN или нераспознанный текст);
+      min/max  — минимальное/максимальное числовое значение.
+
+    Числовыми считаются в т.ч. значения в экспоненциальной форме (1e-3, 1.5E+10)
+    и ±Inf. NaN и нераспознанные значения считаются нечисловыми.
+    """
+
+    def __init__(self):
+        self.hits = 0
+        self.min = None
+        self.max = None
+        self._num_count = 0          # сколько раз значение было числом (без NaN)
+        self._nonnum = set()         # различающиеся НЕ-числовые значения
+        self._all_zero = True        # все числовые значения == 0
+
+    def update(self, value_str: str) -> None:
+        self.hits += 1
+        try:
+            v = float(value_str)
+        except ValueError:
+            self._nonnum.add(value_str)
+            self._all_zero = False
+            return
+        if v != v:                   # NaN: в min/max не учитываем
+            self._nonnum.add("NaN")
+            self._all_zero = False
+            return
+        self._num_count += 1
+        if self.min is None or v < self.min:
+            self.min = v
+        if self.max is None or v > self.max:
+            self.max = v
+        if v != 0.0:
+            self._all_zero = False
+
+    @property
+    def is_const(self) -> bool:
+        if self._nonnum:
+            # Постоянство при наличии не-числовых значений — только если все
+            # значения одинаковы и не было числовых.
+            return self._num_count == 0 and len(self._nonnum) == 1
+        return self.min == self.max   # все значения числовые
+
+    @property
+    def is_zero(self) -> bool:
+        return self.hits > 0 and self._all_zero and self.is_const
+
+    @property
+    def is_num(self) -> bool:
+        """T, если все полученные значения были числовыми (без NaN/мусора)."""
+        return self.hits > 0 and not self._nonnum
+
+
+# --------------------------------------------------------------------------- #
 # Состояние одного endpoint'а
 # --------------------------------------------------------------------------- #
 
@@ -113,6 +179,7 @@ class EndpointCollector:
         # Накопители
         self.all_metrics = set()           # все встреченные ключи метрик
         self.metric_counts = Counter()     # сколько раз получена каждая метрика
+        self.metric_stats = {}             # ключ метрики -> MetricStat
         self.rows = []                     # список dict для CSV
         self.raw_blocks = []               # сырые тела ответов (тексты блоков)
 
@@ -184,6 +251,8 @@ async def poll_endpoint(collector: EndpointCollector,
             current = parse_metrics(body)
             collector.all_metrics.update(current.keys())
             collector.metric_counts.update(current.keys())
+            for key, value in current.items():
+                collector.metric_stats.setdefault(key, MetricStat()).update(value)
 
             row = {"timestamp": req_ts}
             row.update(current)              # отсутствующие колонки -> restval='None'
@@ -220,7 +289,8 @@ def save_raw(collector: EndpointCollector, path: Path) -> None:
         f.writelines(collector.raw_blocks)
 
 
-def save_summary(collector: EndpointCollector, path: Path) -> None:
+def save_run_summary(collector: EndpointCollector, path: Path) -> None:
+    """Параметры запуска по endpoint'у (без данных по конкретным метрикам)."""
     started = collector.started_at.strftime(TS_FMT) if collector.started_at else "—"
     finished = collector.finished_at.strftime(TS_FMT) if collector.finished_at else "—"
     if collector.started_at and collector.finished_at:
@@ -233,7 +303,7 @@ def save_summary(collector: EndpointCollector, path: Path) -> None:
     sub = "-" * 72
     lines = []
     lines.append(sep)
-    lines.append(f"  SUMMARY — endpoint: {collector.name}")
+    lines.append(f"  RUN SUMMARY — endpoint: {collector.name}")
     lines.append(sep)
     lines.append("")
     lines.append("  Время запуска")
@@ -258,20 +328,36 @@ def save_summary(collector: EndpointCollector, path: Path) -> None:
     lines.append("  Метрики")
     lines.append(sub)
     lines.append(f"    Уникальных метрик за запуск : {len(collector.all_metrics)}")
-    lines.append("")
-    if collector.metric_counts:
-        name_w = max(len(m) for m in collector.metric_counts)
-        name_w = min(max(name_w, 20), 100)
-        lines.append(f"    {'МЕТРИКА'.ljust(name_w)}  ПОЛУЧЕНО РАЗ")
-        lines.append(f"    {'-' * name_w}  ------------")
-        for metric, cnt in sorted(collector.metric_counts.items(),
-                                  key=lambda kv: (-kv[1], kv[0])):
-            lines.append(f"    {metric.ljust(name_w)}  {cnt}")
-    else:
-        lines.append("    (метрик не получено — см. raw.txt для анализа ответов)")
+    lines.append("    (детали по каждой метрике — см. *.metrics_summary.csv)")
     lines.append("")
     lines.append(sep)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _fmt_num(v) -> str:
+    """Числовое значение для CSV; пусто, если значения не было."""
+    if v is None:
+        return ""
+    return repr(v)
+
+
+def save_metrics_summary(collector: EndpointCollector, path: Path) -> None:
+    """Статистика по каждой метрике в CSV, сортировка по имени метрики."""
+    columns = ["name", "hits", "is_zero", "is_const", "is_num", "min", "max"]
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(columns)
+        for name in sorted(collector.metric_stats):
+            st = collector.metric_stats[name]
+            writer.writerow([
+                name,
+                st.hits,
+                "T" if st.is_zero else "F",
+                "T" if st.is_const else "F",
+                "T" if st.is_num else "F",
+                _fmt_num(st.min),
+                _fmt_num(st.max),
+            ])
 
 
 def save_all(collectors, run_dir: Path, prefix: str, suffix: str) -> None:
@@ -280,14 +366,17 @@ def save_all(collectors, run_dir: Path, prefix: str, suffix: str) -> None:
         base = join_name(prefix, RUN_ID, c.name, suffix)
         csv_path = run_dir / f"{base}.csv"
         raw_path = run_dir / f"{base}.raw.txt"
-        sum_path = run_dir / f"{base}.summary.txt"
+        run_sum_path = run_dir / f"{base}.run_summary.txt"
+        met_sum_path = run_dir / f"{base}.metrics_summary.csv"
 
         save_csv(c, csv_path)
         save_raw(c, raw_path)
-        save_summary(c, sum_path)
+        save_run_summary(c, run_sum_path)
+        save_metrics_summary(c, met_sum_path)
 
         print(
-            f"[{c.name}] сохранено: {csv_path.name}, {raw_path.name}, {sum_path.name} "
+            f"[{c.name}] сохранено: {csv_path.name}, {raw_path.name}, "
+            f"{run_sum_path.name}, {met_sum_path.name} "
             f"(строк: {len(c.rows)}, метрик: {len(c.all_metrics)})",
             file=sys.stderr,
         )
