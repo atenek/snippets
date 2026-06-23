@@ -1,0 +1,102 @@
+# End Entity OpenSSL config file
+
+[ ca ]
+default_ca = root_ca
+
+[ root_ca ]
+# Directory and file locations.
+
+DIR_imCA          = /home/alex/opensslCA/imCA
+crl_dir           = $DIR_imCA/crl
+new_certs_dir     = $DIR_imCA/newcerts
+database          = $DIR_imCA/index.txt
+serial            = $DIR_imCA/serial
+RANDFILE          = $DIR_imCA/private/.rand
+
+# The root key and root certificate.  
+private_key       = $DIR_imCA/private/im.key.crt  
+certificate       = $DIR_imCA/certs/im.cert.crt
+
+# For certificate revocation lists.  
+crlnumber         = $DIR_imCA/crlnumber  
+crl               = $DIR_imCA/crl/ca.crl.crt  
+crl_extensions    = crl_ext  
+default_crl_days  = 30
+
+# SHA-1 is deprecated, so use SHA-2 instead.  
+default_md        = sha256
+
+name_opt          = ca_default  
+cert_opt          = ca_default  
+default_days      = 7300  
+preserve          = no  
+policy            = policy_endentity
+
+[ policy_endentity ]
+# Allow the intermediate CA to sign a more diverse range of certificates.
+# See the POLICY FORMAT section of the `ca` man page.
+countryName             = match
+stateOrProvinceName     = optional
+organizationName        = optional
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = supplied
+
+[ req ]
+# Options for the `req` tool (`man req`).
+default_bits        = 2048
+distinguished_name  = req_distinguished_name
+string_mask         = utf8only
+
+# SHA-1 is deprecated, so use SHA-2 instead.  
+# default_md          = sha256
+
+# Extension to add when the -x509 option is used.  
+# x509_extensions     = x509_ext_endentity
+
+[ req_distinguished_name ]
+# See https://en.wikipedia.org/wiki/Certificate_signing_request.
+countryName                     = country
+countryName_default             = ru
+stateOrProvinceName             = state
+stateOrProvinceName_default     = Moscow
+localityName                    = locality
+localityName_default            = Moscow
+organizationName                = organization
+organizationName_default        = ATenek Corporation Ltd
+organizationalUnitName          = organization unit
+organizationalUnitName_default  = XXXXX Department
+commonName                      = commonName
+commonName_default              = XXXXX
+emailAddress                    = email
+emailAddress_default            = it@atenek.ru
+  
+[ x509_ext_endentity ]
+# Extensions for server certificates (`man x509v3_config`).
+basicConstraints = CA:FALSE
+nsCertType = client, server
+nsComment = "Certificate for ATenek corporation internal use only"
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer:always
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth, clientAuth
+subjectAltName = @alt_names
+
+[ alt_names ]
+DNS = XXXXX
+DNS = XXXXX.lan
+DNS = XXXXX.atenek.ru
+IP  = 192.168.234.NNN
+
+
+[ crl_ext ]
+# Extension for CRLs (`man x509v3_config`).
+authorityKeyIdentifier=keyid:always
+
+[ ocsp ]
+# Extension for OCSP signing certificates (`man ocsp`).
+basicConstraints = CA:FALSE
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+keyUsage = critical, digitalSignature
+extendedKeyUsage = critical, OCSPSigning
