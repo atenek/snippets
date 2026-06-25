@@ -54,6 +54,20 @@ def die(msg: str) -> "NoReturn":  # noqa: F821
     sys.exit(1)
 
 
+def ask_yes_no(prompt: str, default: bool = True) -> bool:
+    """Спросить y/n. Пустой ввод -> default."""
+    suffix = "[Y/n]" if default else "[y/N]"
+    while True:
+        raw = input(f"{prompt} {suffix}: ").strip().lower()
+        if not raw:
+            return default
+        if raw in ("y", "yes", "д", "да"):
+            return True
+        if raw in ("n", "no", "н", "нет"):
+            return False
+        print("Введите y или n.")
+
+
 # --------------------------------------------------------------------------- #
 #  Инициализация хранилища CA
 # --------------------------------------------------------------------------- #
@@ -231,9 +245,28 @@ def choose_signing_cert(base: Path, prefix: str) -> tuple[Path, Path]:
 # --------------------------------------------------------------------------- #
 #  Высокоуровневые операции
 # --------------------------------------------------------------------------- #
-def gen_private_key(path: Path) -> None:
+def gen_private_key(path: Path, encrypt: bool | None = None) -> None:
+    """Сгенерировать приватный RSA-ключ.
+
+    encrypt=True  — зашифровать AES-256 (openssl спросит passphrase);
+    encrypt=False — БЕЗ пароля (незащищённый ключ);
+    encrypt=None  — спросить пользователя интерактивно (по умолчанию — с паролем).
+
+    Без шифрования `-aes256` опускается: иначе openssl требует 4–1024 символа
+    passphrase и падает на пустом вводе.
+    """
     banner(f"Генерация приватного ключа {path.name}")
-    run(["openssl", "genrsa", "-aes256", "-out", path, "4096"])
+    if encrypt is None:
+        encrypt = ask_yes_no(
+            "Защитить приватный ключ паролем (passphrase)?", default=True
+        )
+    cmd = ["openssl", "genrsa"]
+    if encrypt:
+        cmd.append("-aes256")
+    else:
+        print("(!) Ключ создаётся БЕЗ пароля (passphrase).")
+    cmd += ["-out", path, "4096"]
+    run(cmd)
     os.chmod(path, 0o400)
 
 
