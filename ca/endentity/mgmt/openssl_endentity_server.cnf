@@ -3,6 +3,7 @@
 #   @@CA_DIR@@       — каталог хранилища конечных сертификатов
 #   @@SIGNING_KEY@@  — приватный ключ выбранного промежуточного CA
 #   @@SIGNING_CERT@@ — сертификат выбранного промежуточного CA
+#   @@CN@@           — имя сертификата (CN) из параметра --cn
 
 [ ca ]
 default_ca = ee_ca
@@ -46,6 +47,9 @@ emailAddress            = optional
 
 [ req ]
 # Options for the `req` tool (`man req`).
+# prompt = no — DN берётся из конфига без интерактивного диалога openssl.
+# Поля при необходимости правятся в редакторе (vim) на шаге проверки конфига.
+prompt              = no
 default_bits        = 2048
 distinguished_name  = req_distinguished_name
 string_mask         = utf8only
@@ -53,20 +57,13 @@ default_md          = sha256
 
 [ req_distinguished_name ]
 # See https://en.wikipedia.org/wiki/Certificate_signing_request.
-countryName                     = country
-countryName_default             = ru
-stateOrProvinceName             = state
-stateOrProvinceName_default     = Moscow
-localityName                    = locality
-localityName_default            = Moscow
-organizationName                = organization
-organizationName_default        = LBOSSE Corporation Ltd
-organizationalUnitName          = organization unit
-organizationalUnitName_default  = LBOSSE QA Department
-commonName                      = commonName
-commonName_default              = server1.lbosse.ru
-emailAddress                    = email
-emailAddress_default            = qa_man@lbosse.ru
+countryName            = ru
+stateOrProvinceName    = Moscow
+localityName           = Moscow
+organizationName       = LBOSSE Corporation Ltd
+organizationalUnitName = LBOSSE QA Department
+commonName             = @@CN@@
+emailAddress           = qa_man@lbosse.ru
 
 [ x509_ext_ee ]
 # Extensions for SERVER certificates (`man x509v3_config`).

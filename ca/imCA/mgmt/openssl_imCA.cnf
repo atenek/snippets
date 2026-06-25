@@ -1,8 +1,9 @@
 # intermediate CA Certificate Authority OpenSSL config file
-# Плейсхолдеры @@...@@ подставляются скриптом imCA_init.py (без sed):
-#   @@CA_DIR@@       — каталог хранилища промежуточного CA (его БД)
+# Плейсхолдеры @@...@@ подставляются скриптом imCA_init.py:
+#   @@CA_DIR@@       — каталог хранилища промежуточного CA
 #   @@SIGNING_KEY@@  — приватный ключ выбранного корневого CA
 #   @@SIGNING_CERT@@ — сертификат выбранного корневого CA
+#   @@CN@@           — имя сертификата (CN) из параметра --cn
 
 [ ca ]
 default_ca = intermediate_CA
@@ -47,10 +48,12 @@ emailAddress            = optional
 
 [ req ]
 # Options for the `req` tool (`man req`).
+# prompt = no — DN берётся из конфига без интерактивного диалога openssl.
+# Поля при необходимости правятся в редакторе (vim) на шаге проверки конфига.
+prompt              = no
 default_bits        = 2048
 distinguished_name  = req_distinguished_name
 string_mask         = utf8only
-
 default_md          = sha256
 
 # Extension to add when the -x509 option is used.
@@ -58,20 +61,13 @@ x509_extensions     = x509_ext_intermediate
 
 [ req_distinguished_name ]
 # See https://en.wikipedia.org/wiki/Certificate_signing_request.
-countryName                     = country
-countryName_default             = ru
-stateOrProvinceName             = state
-stateOrProvinceName_default     = Moscow
-localityName                    = locality
-localityName_default            = Moscow
-organizationName                = organization
-organizationName_default        = LBOSSE Corporation
-organizationalUnitName          = organization unit
-organizationalUnitName_default  = Certificate Authority Department
-commonName                      = commonName
-commonName_default              = lbosse_im001_CA
-emailAddress                    = email
-emailAddress_default            = ca_team@lbosse.ru
+countryName            = ru
+stateOrProvinceName    = Moscow
+localityName           = Moscow
+organizationName       = LBOSSE Corporation Ltd
+organizationalUnitName = Certificate Authority Department
+commonName             = @@CN@@
+emailAddress           = ca_team@lbosse.ru
 
 [ x509_ext_intermediate ]
 # Extensions for a typical intermediate CA (`man x509v3_config`).

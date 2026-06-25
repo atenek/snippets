@@ -68,6 +68,36 @@ def ask_yes_no(prompt: str, default: bool = True) -> bool:
         print("Введите y или n.")
 
 
+# Допустимые символы CN, когда он используется как префикс имени файла.
+_CN_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def sanitize_cn(cn: str) -> str:
+    """Проверить имя сертификата (CN), пригодное как префикс имён файлов."""
+    cn = (cn or "").strip()
+    if not cn:
+        die("Имя сертификата (CN) не задано.")
+    if not _CN_RE.match(cn):
+        die("Недопустимое имя сертификата (CN): разрешены буквы, цифры, '.', '_', '-'.")
+    return cn
+
+
+def prompt_cn(default: str | None = None) -> str:
+    """Интерактивно запросить имя сертификата (CN) у пользователя.
+
+    Если задан default, он предлагается в скобках: пустой ввод (Enter) принимает
+    его, иначе пользователь вводит/правит своё значение.
+    """
+    suffix = f" [{default}]" if default else ""
+    while True:
+        raw = input(f"Введите имя сертификата (CN){suffix}: ").strip()
+        if not raw and default:
+            return default
+        if raw and _CN_RE.match(raw):
+            return raw
+        print("Разрешены только буквы, цифры, '.', '_', '-'. Повторите.")
+
+
 # --------------------------------------------------------------------------- #
 #  Инициализация хранилища CA
 # --------------------------------------------------------------------------- #
@@ -110,12 +140,6 @@ def next_index(certs_dir: Path, prefix: str) -> tuple[int, str]:
                 highest = max(highest, int(m.group(1)))
     nxt = highest + 1
     return nxt, f"{nxt:02d}"
-
-
-def index_of(cert_path: Path, prefix: str) -> str:
-    """Извлечь NN из имени <prefix>-NN.crt."""
-    m = re.search(rf"{re.escape(prefix)}-(\d+)\.crt$", cert_path.name)
-    return m.group(1) if m else "00"
 
 
 # --------------------------------------------------------------------------- #
@@ -210,13 +234,17 @@ def choose_signing_cert(base: Path, prefix: str) -> tuple[Path, Path]:
     """
     certs_dir = base / "certs"
     private_dir = base / "private"
-    pat = re.compile(rf"^{re.escape(prefix)}-(\d+)\.crt$")
+    # Имена файлов могут иметь cn-префикс ({cn}_{prefix}-NN.crt), поэтому ищем
+    # стабильный суффикс {prefix}-NN.crt; цепочки (-chain.crt) исключаем.
+    pat = re.compile(rf"{re.escape(prefix)}-(\d+)\.crt$")
     certs = sorted(
-        (f for f in certs_dir.iterdir() if pat.match(f.name)) if certs_dir.exists() else [],
-        key=lambda p: int(pat.match(p.name).group(1)),
+        (f for f in certs_dir.iterdir()
+         if pat.search(f.name) and not f.name.endswith("-chain.crt"))
+        if certs_dir.exists() else [],
+        key=lambda p: (int(pat.search(p.name).group(1)), p.name),
     )
     if not certs:
-        die(f"Не найдено ни одного сертификата {prefix}-*.crt в {certs_dir}.\n"
+        die(f"Не найдено ни одного сертификата *{prefix}-*.crt в {certs_dir}.\n"
             f"Сначала выпустите вышестоящий сертификат.")
 
     print(f"\nДоступные сертификаты для подписи ({prefix}):")
@@ -234,8 +262,8 @@ def choose_signing_cert(base: Path, prefix: str) -> tuple[Path, Path]:
                 break
             print("Некорректный ввод, повторите.")
 
-    nn = index_of(choice, prefix)
-    key = private_dir / f"{prefix}-{nn}.key"
+    # Ключ лежит рядом под тем же именем: <stem>.key.
+    key = private_dir / f"{choice.stem}.key"
     if not key.exists():
         die(f"Для {choice.name} не найден приватный ключ: {key}")
     print(f"\nПодписывающий CA:\n  Сертификат: {choice}\n  Ключ:       {key}")
@@ -279,6 +307,42 @@ def write_chain(chain_path: Path, parts: list[Path]) -> None:
     print(f"Цепочка сертификатов создана: {chain_path}")
 
 
+def review_csr(csr: Path) -> None:
+    """Показать subject будущего сертификата (read-only) и спросить подтверждение.
+
+    Заменяет прежний интерактивный DN-диалог openssl (теперь prompt = no):
+    значения уже зафиксированы в конфиге, тут их только показываем.
+    """
+    banner("Проверка subject будущего сертификата")
+    out = subprocess.run(
+        ["openssl", "req", "-in", str(csr), "-noout", "-subject"],
+        check=True, capture_output=True, text=True,
+    )
+    print(out.stdout.strip())
+    if not ask_yes_no("\nПродолжить выпуск с этим subject?", default=True):
+        die("Выпуск отменён пользователем.")
+
+
+def review_selfsigned(cfg: Path, key: Path) -> None:
+    """Показать subject будущего самоподписанного серта (root) и подтвердить.
+
+    У root нет отдельного CSR (он выпускается `req -x509`), поэтому для
+    предпросмотра во временный файл генерируется одноразовый CSR.
+    """
+    import tempfile
+    fd, tmpname = tempfile.mkstemp(suffix=".csr")
+    os.close(fd)
+    tmp = Path(tmpname)
+    try:
+        subprocess.run(
+            ["openssl", "req", "-config", str(cfg), "-new", "-key", str(key), "-out", str(tmp)],
+            check=True, capture_output=True, text=True,
+        )
+        review_csr(tmp)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 def show_summary(cert: Path) -> None:
     banner("Проверка")
     out = subprocess.run(
@@ -291,23 +355,30 @@ def show_summary(cert: Path) -> None:
 # --------------------------------------------------------------------------- #
 #  main_* — точки входа для трёх скриптов
 # --------------------------------------------------------------------------- #
-def main_root(template_cnf: Path) -> None:
+def main_root(template_cnf: Path, cn: str) -> None:
     base = ROOT_DIR
     ensure_ca_dirs(base)
     init_ca_db(base)
 
-    _, pad = next_index(base / "certs", ROOT_PREFIX)
-    key = base / "private" / f"{ROOT_PREFIX}-{pad}.key"
-    cert = base / "certs" / f"{ROOT_PREFIX}-{pad}.crt"
-    cfg = base / f"openssl_rootCA_{ROOT_PREFIX}-{pad}.cnf"
+    # Имя сертификата (CN) — и как CN в конфиге, и как префикс имён файлов.
+    cn = sanitize_cn(cn)
+    file_prefix = f"{cn}_{ROOT_PREFIX}"
 
-    banner(f"Создание корневого сертификата {ROOT_PREFIX}-{pad}")
+    _, pad = next_index(base / "certs", file_prefix)
+    key = base / "private" / f"{file_prefix}-{pad}.key"
+    cert = base / "certs" / f"{file_prefix}-{pad}.crt"
+    cfg = base / f"openssl_rootCA_{file_prefix}-{pad}.cnf"
+
+    banner(f"Создание корневого сертификата {file_prefix}-{pad} (CN={cn})")
     gen_private_key(key)
 
-    render_config(template_cnf, cfg, {"CA_DIR": base})
+    render_config(template_cnf, cfg, {"CA_DIR": base, "CN": cn})
     edit_config(cfg)
 
-    banner(f"Выпуск самоподписанного корневого сертификата {ROOT_PREFIX}-{pad}")
+    # prompt = no: DN не запрашивается интерактивно — показываем subject для проверки.
+    review_selfsigned(cfg, key)
+
+    banner(f"Выпуск самоподписанного корневого сертификата {file_prefix}-{pad}")
     run([
         "openssl", "req", "-config", cfg,
         "-key", key,
@@ -320,33 +391,41 @@ def main_root(template_cnf: Path) -> None:
     print(f"\nГотово. Корневой сертификат: {cert}")
 
 
-def main_im(template_cnf: Path) -> None:
+def main_im(template_cnf: Path, cn: str) -> None:
     im_base = IM_DIR
     ensure_ca_dirs(im_base)
     init_ca_db(im_base)
 
+    # Имя сертификата (CN) — и как CN в конфиге, и как префикс имён файлов.
+    cn = sanitize_cn(cn)
+    file_prefix = f"{cn}_{IM_PREFIX}"
+
     # Выбор корневого сертификата для подписи.
     root_cert, root_key = choose_signing_cert(ROOT_DIR, ROOT_PREFIX)
 
-    _, pad = next_index(im_base / "certs", IM_PREFIX)
-    key = im_base / "private" / f"{IM_PREFIX}-{pad}.key"
-    csr = im_base / "csr" / f"{IM_PREFIX}-{pad}.csr"
-    cert = im_base / "certs" / f"{IM_PREFIX}-{pad}.crt"
-    chain = im_base / "certs" / f"{IM_PREFIX}-{pad}-chain.crt"
-    cfg = im_base / f"openssl_imCA_{IM_PREFIX}-{pad}.cnf"
+    _, pad = next_index(im_base / "certs", file_prefix)
+    key = im_base / "private" / f"{file_prefix}-{pad}.key"
+    csr = im_base / "csr" / f"{file_prefix}-{pad}.csr"
+    cert = im_base / "certs" / f"{file_prefix}-{pad}.crt"
+    chain = im_base / "certs" / f"{file_prefix}-{pad}-chain.crt"
+    cfg = im_base / f"openssl_imCA_{file_prefix}-{pad}.cnf"
 
-    banner(f"Создание промежуточного сертификата {IM_PREFIX}-{pad}")
+    banner(f"Создание промежуточного сертификата {file_prefix}-{pad} (CN={cn})")
     gen_private_key(key)
 
     render_config(template_cnf, cfg, {
         "CA_DIR": im_base,
         "SIGNING_KEY": root_key,
         "SIGNING_CERT": root_cert,
+        "CN": cn,
     })
     edit_config(cfg)
 
     banner("Создание запроса (CSR) промежуточного CA")
     run(["openssl", "req", "-config", cfg, "-new", "-sha256", "-key", key, "-out", csr])
+
+    # prompt = no: DN не запрашивается интерактивно — показываем subject для проверки.
+    review_csr(csr)
 
     banner("Подписание CSR корневым сертификатом")
     run([
@@ -366,41 +445,48 @@ def main_im(template_cnf: Path) -> None:
     print(f"Файл цепочки (im+root): {chain}")
 
 
-def main_ee(mgmt_dir: Path) -> None:
+def main_ee(mgmt_dir: Path, cn: str) -> None:
     ee_base = EE_DIR
     ensure_ca_dirs(ee_base)
     init_ca_db(ee_base)
+
+    # Имя сертификата (CN) используется и как CN в конфиге, и как префикс имён файлов.
+    cn = sanitize_cn(cn)
+    file_prefix = f"{cn}_{EE_PREFIX}"
 
     # Выбор шаблона конфигурации (клиентский / серверный / клиент-серверный ...).
     template_cnf = choose_template(mgmt_dir)
 
     # Выбор промежуточного сертификата для подписи.
     im_cert, im_key = choose_signing_cert(IM_DIR, IM_PREFIX)
-    im_nn = index_of(im_cert, IM_PREFIX)
-    im_chain = IM_DIR / "certs" / f"{IM_PREFIX}-{im_nn}-chain.crt"
+    im_chain = im_cert.with_name(f"{im_cert.stem}-chain.crt")
     if not im_chain.exists():
         print(f"(!) Цепочка {im_chain.name} не найдена — для проверки использую сам im-серт.")
         im_chain = im_cert
 
-    _, pad = next_index(ee_base / "certs", EE_PREFIX)
-    key = ee_base / "private" / f"{EE_PREFIX}-{pad}.key"
-    csr = ee_base / "csr" / f"{EE_PREFIX}-{pad}.csr"
-    cert = ee_base / "certs" / f"{EE_PREFIX}-{pad}.crt"
-    chain = ee_base / "certs" / f"{EE_PREFIX}-{pad}-chain.crt"
-    cfg = ee_base / f"openssl_endentity_{EE_PREFIX}-{pad}.cnf"
+    _, pad = next_index(ee_base / "certs", file_prefix)
+    key = ee_base / "private" / f"{file_prefix}-{pad}.key"
+    csr = ee_base / "csr" / f"{file_prefix}-{pad}.csr"
+    cert = ee_base / "certs" / f"{file_prefix}-{pad}.crt"
+    chain = ee_base / "certs" / f"{file_prefix}-{pad}-chain.crt"
+    cfg = ee_base / f"openssl_endentity_{file_prefix}-{pad}.cnf"
 
-    banner(f"Создание конечного сертификата {EE_PREFIX}-{pad}")
+    banner(f"Создание конечного сертификата {file_prefix}-{pad} (CN={cn})")
     gen_private_key(key)
 
     render_config(template_cnf, cfg, {
         "CA_DIR": ee_base,
         "SIGNING_KEY": im_key,
         "SIGNING_CERT": im_cert,
+        "CN": cn,
     })
     edit_config(cfg)
 
     banner("Создание запроса (CSR) конечного сертификата")
     run(["openssl", "req", "-config", cfg, "-new", "-sha256", "-key", key, "-out", csr])
+
+    # prompt = no: DN не запрашивается интерактивно — показываем subject для проверки.
+    review_csr(csr)
 
     banner("Подписание CSR промежуточным сертификатом")
     run([
@@ -421,10 +507,10 @@ def main_ee(mgmt_dir: Path) -> None:
     print(f"Файл полной цепочки (ee+im+root): {chain}")
 
 
-def guard(fn, template_cnf: Path) -> None:
+def guard(fn, *args) -> None:
     """Запустить main_* с аккуратной обработкой ошибок/прерывания."""
     try:
-        fn(template_cnf)
+        fn(*args)
     except KeyboardInterrupt:
         print("\nПрервано пользователем.", file=sys.stderr)
         sys.exit(130)

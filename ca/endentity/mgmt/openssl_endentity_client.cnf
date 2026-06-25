@@ -3,12 +3,13 @@
 #   @@CA_DIR@@       — каталог хранилища конечных сертификатов (его БД)
 #   @@SIGNING_KEY@@  — приватный ключ выбранного промежуточного CA
 #   @@SIGNING_CERT@@ — сертификат выбранного промежуточного CA
+#   @@CN@@           — имя сертификата (CN) из параметра --cn
 
 [ ca ]
 default_ca = ee_ca
 
 [ ee_ca ]
-# Каталоги и файлы БД для учёта выпущенных конечных сертификатов.
+# Directory and file locations.
 dir               = @@CA_DIR@@
 certs             = $dir/certs
 crl_dir           = $dir/crl
@@ -46,6 +47,9 @@ emailAddress            = optional
 
 [ req ]
 # Options for the `req` tool (`man req`).
+# prompt = no — DN берётся из конфига без интерактивного диалога openssl.
+# Поля при необходимости правятся в редакторе (vim) на шаге проверки конфига.
+prompt              = no
 default_bits        = 2048
 distinguished_name  = req_distinguished_name
 string_mask         = utf8only
@@ -53,25 +57,18 @@ default_md          = sha256
 
 [ req_distinguished_name ]
 # See https://en.wikipedia.org/wiki/Certificate_signing_request.
-countryName                     = country
-countryName_default             = ru
-stateOrProvinceName             = state
-stateOrProvinceName_default     = Moscow
-localityName                    = locality
-localityName_default            = Moscow
-organizationName                = organization
-organizationName_default        = ATenek Corporation Ltd
-organizationalUnitName          = organization unit
-organizationalUnitName_default  = XXXXX Department
-commonName                      = commonName
-commonName_default              = user1
-emailAddress                    = email
-emailAddress_default            = user1@atenek.ru
+countryName            = ru
+stateOrProvinceName    = Moscow
+localityName           = Moscow
+organizationName       = LBOSSE Corporation Ltd
+organizationalUnitName = LBOSSE QA Department
+commonName             = @@CN@@
+emailAddress           = hc@lbosse.ru
 
 [ x509_ext_ee ]
 # Extensions for CLIENT certificates (`man x509v3_config`).
 basicConstraints = CA:FALSE
-nsComment = "Client certificate for ATenek corporation internal use only"
+nsComment = "Client certificate for LBOSSE Corporation Ltd internal use only"
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid,issuer:always
 keyUsage = critical, digitalSignature, keyEncipherment
@@ -80,8 +77,8 @@ subjectAltName = @alt_names
 
 [ alt_names ]
 # Идентификаторы владельца клиентского сертификата (обычно e-mail).
-email.1 = user1@atenek.ru
-email.2 = user1@example.com
+email.1 = hc@lbosse.ru
+email.2 = health-check@lbosse.com
 
 [ crl_ext ]
 # Extension for CRLs (`man x509v3_config`).
