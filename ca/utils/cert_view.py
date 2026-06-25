@@ -5,7 +5,7 @@
     cert_view.py cert.crt                 # полный текст сертификата
     cert_view.py -s cert.crt              # кратко: subject, issuer, сроки
     cert_view.py *.crt                    # несколько файлов подряд
-    cat cert.crt | cert_view.py -         # из stdin
+    cat cert.crt | cert_view.py           # из stdin: тип определяется автоматически
 """
 
 import argparse
@@ -13,25 +13,123 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Сопоставление заголовка PEM с типом объекта и подкомандой openssl.
+# Для каждого типа задаём:
+#   openssl-команду (без -text/-noout),
+#   набор опций для краткого режима (-s).
+PEM_TYPES = {
+    "CERTIFICATE": (
+        "сертификат X.509",
+        ["x509"],
+        ["-subject", "-issuer", "-serial", "-dates", "-fingerprint"],
+    ),
+    "CERTIFICATE REQUEST": (
+        "запрос на сертификат (CSR)",
+        ["req"],
+        ["-subject"],
+    ),
+    "NEW CERTIFICATE REQUEST": (
+        "запрос на сертификат (CSR)",
+        ["req"],
+        ["-subject"],
+    ),
+    "X509 CRL": (
+        "список отзыва (CRL)",
+        ["crl"],
+        ["-issuer", "-lastupdate", "-nextupdate"],
+    ),
+    "PRIVATE KEY": (
+        "приватный ключ",
+        ["pkey"],
+        ["-noout"],
+    ),
+    "RSA PRIVATE KEY": (
+        "приватный ключ RSA",
+        ["rsa"],
+        ["-noout"],
+    ),
+    "EC PRIVATE KEY": (
+        "приватный ключ EC",
+        ["ec"],
+        ["-noout"],
+    ),
+    "ENCRYPTED PRIVATE KEY": (
+        "зашифрованный приватный ключ",
+        ["pkey"],
+        ["-noout"],
+    ),
+    "PUBLIC KEY": (
+        "публичный ключ",
+        ["pkey", "-pubin"],
+        ["-noout"],
+    ),
+}
 
-def view_cert(source: str, short: bool) -> int:
-    """Вывести содержимое одного сертификата. Возвращает код возврата openssl."""
-    cmd = ["openssl", "x509", "-noout"]
+
+def detect_type(data: bytes):
+    """Определить тип объекта по заголовку PEM.
+
+    Возвращает кортеж (человекочитаемое имя, openssl-команда, опции краткого
+    режима) или None, если заголовок не распознан.
+    """
+    for line in data.splitlines():
+        line = line.strip()
+        if line.startswith(b"-----BEGIN ") and line.endswith(b"-----"):
+            label = line[len(b"-----BEGIN "):-len(b"-----")].decode(
+                "ascii", "replace"
+            ).strip()
+            if label in PEM_TYPES:
+                return PEM_TYPES[label]
+            return None
+    return None
+
+
+def run_openssl(cmd, short: bool, short_opts, infile, data: bytes = None) -> int:
+    """Запустить openssl с нужными опциями отображения."""
+    full = ["openssl"] + cmd + ["-noout"]
     if short:
-        cmd += ["-subject", "-issuer", "-serial", "-dates", "-fingerprint"]
+        # для ключей -noout уже задаёт стандартный краткий вывод
+        full += [o for o in short_opts if o != "-noout"]
     else:
-        cmd += ["-text"]
+        full += ["-text"]
 
-    if source == "-":
-        cmd += ["-in", "/dev/stdin"]
-    else:
-        path = Path(source)
-        if not path.exists():
-            print(f"ERROR: файл не найден: {source}", file=sys.stderr)
-            return 1
-        cmd += ["-in", str(path)]
+    if infile is not None:
+        full += ["-in", str(infile)]
+        return subprocess.run(full).returncode
+    return subprocess.run(full, input=data).returncode
 
-    return subprocess.run(cmd).returncode
+
+def view_file(source: str, short: bool) -> int:
+    """Вывести содержимое сертификата из файла. Возвращает код возврата openssl."""
+    path = Path(source)
+    if not path.exists():
+        print(f"ERROR: файл не найден: {source}", file=sys.stderr)
+        return 1
+    # из файла, как и раньше, считаем что это сертификат X.509
+    _, cmd, short_opts = PEM_TYPES["CERTIFICATE"]
+    return run_openssl(cmd, short, short_opts, infile=path)
+
+
+def view_stdin(short: bool) -> int:
+    """Прочитать объект из stdin (до Ctrl+D), определить тип и вывести."""
+    data = sys.stdin.buffer.read()
+    if not data.strip():
+        print("ERROR: пустой ввод на stdin", file=sys.stderr)
+        return 1
+
+    detected = detect_type(data)
+    if detected is None:
+        print(
+            "ERROR: не удалось определить тип объекта на stdin "
+            "(ожидается PEM с заголовком -----BEGIN ...-----)",
+            file=sys.stderr,
+        )
+        return 1
+
+    name, cmd, short_opts = detected
+    print(f"===== тип: {name} =====")
+    sys.stdout.flush()
+    return run_openssl(cmd, short, short_opts, infile=None, data=data)
 
 
 def main(argv=None) -> int:
@@ -39,21 +137,24 @@ def main(argv=None) -> int:
         description="Вывести содержимое сертификата(ов) в stdout через openssl.",
     )
     parser.add_argument(
-        "files", nargs="+", metavar="CERT",
-        help="путь к сертификату (PEM/DER) или '-' для чтения из stdin",
+        "files", nargs="*", metavar="CERT",
+        help="путь к сертификату (PEM/DER); без аргумента читается stdin",
     )
     parser.add_argument(
         "-s", "--short", action="store_true",
-        help="краткая сводка (subject/issuer/serial/сроки/отпечаток) вместо полного текста",
+        help="краткая сводка вместо полного текста",
     )
     args = parser.parse_args(argv)
+
+    if not args.files:
+        return view_stdin(args.short)
 
     rc = 0
     multiple = len(args.files) > 1
     for src in args.files:
         if multiple:
             print(f"\n===== {src} =====")
-        rc |= view_cert(src, args.short)
+        rc |= view_file(src, args.short)
     return rc
 
 

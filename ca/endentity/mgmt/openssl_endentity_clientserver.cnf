@@ -1,0 +1,100 @@
+# End Entity OpenSSL config file — КЛИЕНТ-СЕРВЕРНЫЙ сертификат (TLS server + client)
+# Плейсхолдеры @@...@@ подставляются скриптом endentity_init.py:
+#   @@CA_DIR@@       — каталог хранилища конечных сертификатов
+#   @@SIGNING_KEY@@  — приватный ключ выбранного промежуточного CA
+#   @@SIGNING_CERT@@ — сертификат выбранного промежуточного CA
+
+[ ca ]
+default_ca = ee_ca
+
+[ ee_ca ]
+# Каталоги и файлы БД для учёта выпущенных конечных сертификатов.
+dir               = @@CA_DIR@@
+certs             = $dir/certs
+crl_dir           = $dir/crl
+new_certs_dir     = $dir/newcerts
+database          = $dir/index.txt
+serial            = $dir/serial
+RANDFILE          = $dir/private/.rand
+
+# Ключ и сертификат ПОДПИСЫВАЮЩЕГО (промежуточного) CA.
+private_key       = @@SIGNING_KEY@@
+certificate       = @@SIGNING_CERT@@
+
+# For certificate revocation lists.
+crlnumber         = $dir/crlnumber
+crl               = $dir/crl/ee.crl.pem
+crl_extensions    = crl_ext
+default_crl_days  = 30
+
+default_md        = sha256
+
+name_opt          = ca_default
+cert_opt          = ca_default
+default_days      = 365
+preserve          = no
+policy            = policy_endentity
+
+[ policy_endentity ]
+# See the POLICY FORMAT section of the `ca` man page.
+countryName             = match
+stateOrProvinceName     = optional
+organizationName        = optional
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+[ req ]
+# Options for the `req` tool (`man req`).
+default_bits        = 2048
+distinguished_name  = req_distinguished_name
+string_mask         = utf8only
+default_md          = sha256
+
+[ req_distinguished_name ]
+# See https://en.wikipedia.org/wiki/Certificate_signing_request.
+countryName                     = country
+countryName_default             = ru
+stateOrProvinceName             = state
+stateOrProvinceName_default     = Moscow
+localityName                    = locality
+localityName_default            = Moscow
+organizationName                = organization
+organizationName_default        = LBOSSE Corporation Ltd
+organizationalUnitName          = organization unit
+organizationalUnitName_default  = LBOSSE QA Department
+commonName                      = commonName
+commonName_default              = server1.lbosse.ru
+emailAddress                    = email
+emailAddress_default            = qa_man@lbosse.ru
+
+[ x509_ext_ee ]
+# Extensions for COMBINED server+client certificates (`man x509v3_config`).
+basicConstraints = CA:FALSE
+nsComment = "Client-server certificate for LBOSSE Corporation Ltd internal use only"
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer:always
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth, clientAuth
+subjectAltName = @alt_names
+
+[ alt_names ]
+# Cерверные имена/адреса, и идентификаторы владельца (e-mail).
+DNS.1 = server_1.lbosse.ru
+DNS.2 = server-1.lbosse.ru
+DNS.3 = server1.lbosse.ru
+IP.1 = 192.168.1.10
+IP.2 = 10.0.0.10
+email.1 = qa_man@lbosse.ru
+
+[ crl_ext ]
+# Extension for CRLs (`man x509v3_config`).
+authorityKeyIdentifier=keyid:always
+
+[ ocsp ]
+# Extension for OCSP signing certificates (`man ocsp`).
+basicConstraints = CA:FALSE
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+keyUsage = critical, digitalSignature
+extendedKeyUsage = critical, OCSPSigning

@@ -132,6 +132,50 @@ def edit_config(path: Path) -> None:
 
 
 # --------------------------------------------------------------------------- #
+#  Выбор шаблона конфигурации
+# --------------------------------------------------------------------------- #
+def _template_hint(template: Path) -> str:
+    """Первая содержательная строка-комментарий шаблона как краткое описание."""
+    try:
+        for line in template.read_text().splitlines():
+            s = line.strip()
+            if s.startswith("#") and len(s) > 1:
+                return s.lstrip("#").strip()
+    except OSError:
+        pass
+    return ""
+
+
+def choose_template(mgmt_dir: Path, pattern: str = "*.cnf") -> Path:
+    """Показать список шаблонов *.cnf рядом со скриптом и дать выбрать один.
+
+    Возвращает путь к выбранному шаблону. Падает, если шаблонов нет.
+    Дальше выбранный шаблон копируется и редактируется в render_config/edit_config.
+    """
+    templates = sorted(mgmt_dir.glob(pattern))
+    if not templates:
+        die(f"Не найдено ни одного шаблона {pattern} в {mgmt_dir}.")
+
+    print(f"\nДоступные шаблоны конфигурации ({pattern}):")
+    for i, t in enumerate(templates, 1):
+        print(f"  [{i}] {t.name}   {_template_hint(t)}")
+
+    if len(templates) == 1:
+        choice = templates[0]
+        print(f"\nДоступен один шаблон — выбран автоматически: {choice.name}")
+    else:
+        while True:
+            raw = input(f"Выберите номер [1-{len(templates)}]: ").strip()
+            if raw.isdigit() and 1 <= int(raw) <= len(templates):
+                choice = templates[int(raw) - 1]
+                break
+            print("Некорректный ввод, повторите.")
+
+    print(f"\nВыбран шаблон: {choice}")
+    return choice
+
+
+# --------------------------------------------------------------------------- #
 #  Выбор подписывающего сертификата
 # --------------------------------------------------------------------------- #
 def _subject(cert: Path) -> str:
@@ -289,10 +333,13 @@ def main_im(template_cnf: Path) -> None:
     print(f"Файл цепочки (im+root): {chain}")
 
 
-def main_ee(template_cnf: Path) -> None:
+def main_ee(mgmt_dir: Path) -> None:
     ee_base = EE_DIR
     ensure_ca_dirs(ee_base)
     init_ca_db(ee_base)
+
+    # Выбор шаблона конфигурации (клиентский / серверный / клиент-серверный ...).
+    template_cnf = choose_template(mgmt_dir)
 
     # Выбор промежуточного сертификата для подписи.
     im_cert, im_key = choose_signing_cert(IM_DIR, IM_PREFIX)
