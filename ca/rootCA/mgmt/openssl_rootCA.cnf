@@ -1,11 +1,12 @@
 # root CA Certificate Authority OpenSSL config file
+# Плейсхолдеры @@...@@ подставляются скриптом rootCA_init.py (без sed).
 
 [ ca ]
 default_ca = root_ca
 
 [ root_ca ]
 # Directory and file locations.
-dir               = .
+dir               = @@CA_DIR@@
 certs             = $dir/certs
 crl_dir           = $dir/crl
 new_certs_dir     = $dir/newcerts
@@ -13,23 +14,22 @@ database          = $dir/index.txt
 serial            = $dir/serial
 RANDFILE          = $dir/private/.rand
 
-# The root key and root certificate.  
-private_key       = $dir/private/ca.key.crt  
-certificate       = $dir/certs/ca.cert.crt
+# Корневой ключ и сертификат (для self-sign через `req -x509` не используются).
+private_key       = $dir/private/root_cert.key
+certificate       = $dir/certs/root_cert.crt
 
-# For certificate revocation lists.  
-crlnumber         = $dir/crlnumber  
-crl               = $dir/crl/ca.crl.crt  
-crl_extensions    = crl_ext  
+# For certificate revocation lists.
+crlnumber         = $dir/crlnumber
+crl               = $dir/crl/root.crl.pem
+crl_extensions    = crl_ext
 default_crl_days  = 30
 
-# SHA-1 is deprecated, so use SHA-2 instead.  
 default_md        = sha256
 
-name_opt          = ca_default  
-cert_opt          = ca_default  
-default_days      = 7300  
-preserve          = no  
+name_opt          = ca_default
+cert_opt          = ca_default
+default_days      = 7300
+preserve          = no
 policy            = policy_selfsign
 
 [ policy_selfsign ]
@@ -48,10 +48,9 @@ default_bits        = 2048
 distinguished_name  = req_distinguished_name
 string_mask         = utf8only
 
-# SHA-1 is deprecated, so use SHA-2 instead.  
 default_md          = sha256
 
-# Extension to add when the -x509 option is used.  
+# Extension to add when the -x509 option is used.
 x509_extensions     = x509_ext_root
 
 [ req_distinguished_name ]
@@ -67,7 +66,7 @@ organizationName_default        = LBOSSE Corporation
 organizationalUnitName          = organization unit
 organizationalUnitName_default  = Certificate Authority Department
 commonName                      = commonName
-commonName_default              = lbosse root CA
+commonName_default              = lbosse_root_CA
 emailAddress                    = email
 emailAddress_default            = ca_team@lbosse.ru
 

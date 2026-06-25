@@ -1,58 +1,55 @@
 # End Entity OpenSSL config file
+# Плейсхолдеры @@...@@ подставляются скриптом endentity_init.py (без sed):
+#   @@CA_DIR@@       — каталог хранилища конечных сертификатов (его БД)
+#   @@SIGNING_KEY@@  — приватный ключ выбранного промежуточного CA
+#   @@SIGNING_CERT@@ — сертификат выбранного промежуточного CA
 
 [ ca ]
-default_ca = root_ca
+default_ca = ee_ca
 
-[ root_ca ]
-# Directory and file locations.
+[ ee_ca ]
+# Каталоги и файлы БД для учёта выпущенных конечных сертификатов.
+dir               = @@CA_DIR@@
+certs             = $dir/certs
+crl_dir           = $dir/crl
+new_certs_dir     = $dir/newcerts
+database          = $dir/index.txt
+serial            = $dir/serial
+RANDFILE          = $dir/private/.rand
 
-DIR_imCA          = /home/alex/opensslCA/imCA
-crl_dir           = $DIR_imCA/crl
-new_certs_dir     = $DIR_imCA/newcerts
-database          = $DIR_imCA/index.txt
-serial            = $DIR_imCA/serial
-RANDFILE          = $DIR_imCA/private/.rand
+# Ключ и сертификат ПОДПИСЫВАЮЩЕГО (промежуточного) CA.
+private_key       = @@SIGNING_KEY@@
+certificate       = @@SIGNING_CERT@@
 
-# The root key and root certificate.  
-private_key       = $DIR_imCA/private/im.key.crt  
-certificate       = $DIR_imCA/certs/im.cert.crt
-
-# For certificate revocation lists.  
-crlnumber         = $DIR_imCA/crlnumber  
-crl               = $DIR_imCA/crl/ca.crl.crt  
-crl_extensions    = crl_ext  
+# For certificate revocation lists.
+crlnumber         = $dir/crlnumber
+crl               = $dir/crl/ee.crl.pem
+crl_extensions    = crl_ext
 default_crl_days  = 30
 
-# SHA-1 is deprecated, so use SHA-2 instead.  
 default_md        = sha256
 
-name_opt          = ca_default  
-cert_opt          = ca_default  
-default_days      = 7300  
-preserve          = no  
+name_opt          = ca_default
+cert_opt          = ca_default
+default_days      = 365
+preserve          = no
 policy            = policy_endentity
 
 [ policy_endentity ]
-# Allow the intermediate CA to sign a more diverse range of certificates.
 # See the POLICY FORMAT section of the `ca` man page.
 countryName             = match
 stateOrProvinceName     = optional
 organizationName        = optional
 organizationalUnitName  = optional
 commonName              = supplied
-emailAddress            = supplied
+emailAddress            = optional
 
 [ req ]
 # Options for the `req` tool (`man req`).
 default_bits        = 2048
 distinguished_name  = req_distinguished_name
 string_mask         = utf8only
-
-# SHA-1 is deprecated, so use SHA-2 instead.  
-# default_md          = sha256
-
-# Extension to add when the -x509 option is used.  
-# x509_extensions     = x509_ext_endentity
+default_md          = sha256
 
 [ req_distinguished_name ]
 # See https://en.wikipedia.org/wiki/Certificate_signing_request.
@@ -70,11 +67,10 @@ commonName                      = commonName
 commonName_default              = XXXXX
 emailAddress                    = email
 emailAddress_default            = it@atenek.ru
-  
-[ x509_ext_endentity ]
-# Extensions for server certificates (`man x509v3_config`).
+
+[ x509_ext_ee ]
+# Extensions for server/client certificates (`man x509v3_config`).
 basicConstraints = CA:FALSE
-nsCertType = client, server
 nsComment = "Certificate for ATenek corporation internal use only"
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid,issuer:always
@@ -83,11 +79,11 @@ extendedKeyUsage = serverAuth, clientAuth
 subjectAltName = @alt_names
 
 [ alt_names ]
-DNS = XXXXX
-DNS = XXXXX.lan
-DNS = XXXXX.atenek.ru
-IP  = 192.168.234.NNN
-
+DNS.1 = server1.example.com
+DNS.2 = server1.example.net
+DNS.3 = *.example.com
+IP.1 = 192.168.1.10
+IP.2 = 10.0.0.10
 
 [ crl_ext ]
 # Extension for CRLs (`man x509v3_config`).
