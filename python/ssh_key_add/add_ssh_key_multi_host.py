@@ -13,16 +13,18 @@ ssh принял пароль), и идемпотентно добавляет P
 
 """
 
+import fcntl
 import os
 import pty
 import select
 import subprocess
 import sys
+import termios
 import time
 
 HOSTS_FILE = "hosts_list.txt"
 
-PUBLIC_KEY = "ssh-ed25519 AAAA***********PUBLIC_KEY**************"
+PUBLIC_KEY = "ssh-ed25519 AAAA**********PUBLIC_KEY**************** alex@i5ubu24"
 
 CONNECT_TIMEOUT = 10
 SESSION_TIMEOUT = 30
@@ -65,6 +67,21 @@ def run_ssh(host, user, password):
     """
     master_fd, slave_fd = pty.openpty()
 
+    def _make_controlling_tty():
+        # Новая сессия + назначение pty управляющим терминалом. Без этого
+        # ssh не видит управляющего tty, уходит в графический ssh-askpass
+        # и не может получить пароль ("Permission denied").
+        os.setsid()
+        fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+
+    # Чистим окружение, чтобы ssh не пытался использовать внешний askpass
+    # вместо нашего pty (на новых OpenSSH это поведение управляется
+    # SSH_ASKPASS_REQUIRE).
+    env = dict(os.environ)
+    env.pop("SSH_ASKPASS", None)
+    env.pop("DISPLAY", None)
+    env["SSH_ASKPASS_REQUIRE"] = "never"
+
     proc = subprocess.Popen(
         [
             "ssh",
@@ -84,6 +101,9 @@ def run_ssh(host, user, password):
         stderr=slave_fd,
         text=False,
         close_fds=True,
+        start_new_session=False,  # сессию создаём сами в preexec_fn
+        preexec_fn=_make_controlling_tty,
+        env=env,
     )
 
     os.close(slave_fd)
