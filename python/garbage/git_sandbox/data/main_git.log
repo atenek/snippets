@@ -1,0 +1,728 @@
+a2ab0ccd3eff45c04e947deadc0419cb228c38f5 Fix memory leak in buffer allocation routine.
+09e3ce8fe5b88d4c99fc7c40245295b4612d24b3 Reduce peak memory usage in stream handler.
+c16a559240efc2ca62598b668a04643debd069b3 Add bounds check before buffer write operation.
+a4cade19f8540dbf450a1c801a0e96fab6b9c25c Release allocated memory on early exit path.
+64365b1611e125a1ea16bfa7621006181efb147f Replace static buffer with dynamic heap allocation.
+b15d4c9139f36732293d6c338dc1f2ed0df077f3 Fix off-by-one error in ring buffer index.
+0a7ddde464560c7651d0ce7f0ae4315ea3bec8a2 Increase default buffer size to reduce reallocations.
+7558d686ffe04329dbc90f0a98de2db51579e2b8 Add null check after malloc call in reader loop.
+257fc368d1c56dbb060718d8db8ec55b938059e6 Zero-initialize output buffer before use.
+4aededb38b3e5088e553f6a87087f9c0600781ac Fix double-free bug in cleanup function.
+a8e527a912e229e2369334daa6f1c8aa0d2a0c94 Add retry logic for failed HTTP connections.
+a57d99367fee4c6fb9806b70f9acbe21c712b2d6 Set read timeout for HTTP response parsing.
+e494719c90297c32d48692cacb84a8735eb514f2 Handle HTTP 429 status with exponential backoff.
+042b5c7016b4973fdf853e09f11f65ebebb5abee Fix header parsing for multiline HTTP fields.
+19022dfaa8438b2077cad7a2b5a55300cd2c8b39 Add support for HTTP chunked transfer encoding.
+b009edba950c2e65dfeec509fd92a6d25e4ef20c Validate Content-Length before reading body.
+d9e9fbab7271979a8a732367595ce86e7f20ae52 Fix connection leak on HTTP redirect.
+5cb880c09eaadfab190c68f98e75e520051fd655 Add User-Agent header to outgoing requests.
+30982662a0c7995bf7f47e5b145a91fdcf14175f Handle HTTP 503 response in client wrapper.
+6dbeb4cfcf03b8124653c7cee8f6d6963daa2ba2 Fix URL encoding for query string parameters.
+d731b226af4f0f8ba7daa740e4a0ffb06589600f Set SO_REUSEADDR option on listening socket.
+beff018acb4e038bfba2388eb36bf4c8bc4794ed Handle EINTR correctly in recv loop.
+97e29a10ed91d350a42ed0dd6187464dd6efb6cc Add socket read timeout to prevent indefinite block.
+9044af04b444719a5c02040a526e5b786c4e20e7 Fix file descriptor leak on failed connect.
+2bef7fc5d2c23a2cf52fc0e9cfffebe521b6bb5f Switch socket to non-blocking mode before select.
+df3662c55b7cf37981a5e6ce6f08135f0e433138 Handle partial send in socket write function.
+6d2409d657d145d0d1d67f9aad6a7e2f7b1e899a Close idle connections after timeout period.
+171c00901b30c83d29ea70a76735d4ad8f3d9223 Fix bind error handling for port already in use.
+2adcdcb543a9178b192a3079d16ede939e4b4810 Add TCP_NODELAY option for low-latency connections.
+aff1b814b132a939fd90477cc8a03b69db578487 Drain socket buffer before closing connection.
+41f2de4a13ed70a14ff39941b1576c2c840aa8cf Flush write buffer before closing file descriptor.
+45eff8036d89763b04966f31f701171dbc6fafa0 Handle EAGAIN in non-blocking read loop.
+834c8dcb715f96e2b703887869e33acec248a9a1 Add retry on partial read from pipe.
+ab81923b9e17befd7cc49a38c6914b07b4722ec5 Fix file descriptor leak on open failure.
+f928d0332a8eced7a8afe2b9cc541b5fa66d19b2 Use O_CLOEXEC flag when opening files in threads.
+caf70c64fdedc514d0b22721294149c181e80a01 Batch small writes to reduce syscall overhead.
+1b411d59aea5aabb0f5dea592e233d129236c74a Handle EOF correctly in line reader loop.
+89e42e2ed856e2eb62370efff0752ba6c5b54add Add fsync call before renaming temp file.
+fa08cbd268c7c1c05d47f6e05f5ee15631262a40 Fix error handling for truncated file reads.
+784c55a6fb824c61168828705a155f6347ad43cc Use mmap for large sequential file reads.
+456995f2b524e56646f0bf74908f3370f493217c Fix race condition in shared queue access.
+0c2d4bee316bf641b400cda019318035e101b63c Add mutex lock around stats counter update.
+662e9e6c175dc980e17a00821bed0f4cd9623612 Use condition variable instead of busy wait.
+45f83d86a56a3dc02bc27b4a700a585742c6f8c2 Join worker threads before freeing shared state.
+b35540122b6a146e43ee19250cec5bfca4578bd1 Fix deadlock in lock acquisition order.
+e793cbe3283e71b07235704f074ab2e5adc39b4f Limit thread pool size based on CPU count.
+0ad337b50b79db92c0937bba7ef780ced1e9ba06 Add thread-local storage for error context.
+6ed18c4942738c8737abac888cfc19f774a74762 Fix missing unlock on error path in handler.
+c83afac2eb0d869b198aecce095a4a5e9295b00b Use atomic compare-and-swap for reference count.
+8cdf193ca9063286db65930f4f6315977de99ba8 Reduce lock contention in hot path.
+2b4133147366c1d2ddd1401cdcef36f2e5c508d9 Handle SIGCHLD to avoid zombie processes.
+a646849884e1190c99ec6d79881e0d15245eb8d1 Add pipe close-on-exec for child processes.
+dab2832d123b13f34fea6867efe0cc0b62cce793 Fix signal handler to use only async-safe calls.
+23c7bf3ce9213480ce4d4aad20be4cb9cc41d128 Reap child processes after task completion.
+df5ccdfc6e2c02869a0a709cd2cf76d71feb7fe9 Use socketpair for bidirectional IPC channel.
+372d6c47f178cb678aad456bb46c8002981655e0 Add process group handling for clean shutdown.
+0b61bfb25baa6f9eb94c033c605ffc83e634f1be Fix shared memory segment size calculation.
+4887a1274cbdf47ddd7b459ac9ef96b152f1c4b2 Handle SIGPIPE gracefully in write path.
+b760918162265a0317630a5310808dfbcb41d54e Use semaphore to synchronize worker startup.
+1f5e8c5dc29e1814149feec352953fb9a0777168 Clean up named pipe on process exit.
+bd2ffc2eb87ca9061826f5a9d28a21196447e20d Remove stale connection from pool on error.
+fed9c4e709a76da46ac946c4eb74445eaa305bfb Add backpressure mechanism to input queue.
+ddbf2311673837eed8095ce92f8618a3dfcf94d5 Fix frame boundary detection in stream parser.
+bf95cd5faf675b61b6376808594df244966676b3 Handle partial writes in async I/O handler.
+379dc428362567e0b9ace976fcf67a3b00382318 Add keepalive probes for long-lived connections.
+032ff537dd50229d48575c7c27a512abe28cea00 Fix select timeout calculation for sub-second values.
+cac1f706b113ab81d47395fd3eb3c4b0e0b4e272 Handle process restart on unexpected exit.
+db6e83afe159e483fe8c76d604aa29f15d4dcba0 Improve error reporting in socket accept loop.
+f037e14ff7d5914968eb686f58a391e8a9dfb3cd Add watermark threshold to flow control logic.
+a57a7c4379a34285087dd9ad02b2b2867465c4e2 Fix iterator invalidation in connection list.
+2f8c2bef031ef5b6aec87da8551e89eeee041c65 Reduce syscall overhead in poll loop.
+375e093a3b785e4593c5897f9db80df7af89e5d3 Add graceful shutdown sequence for worker pool.
+a8c2a31f053b1be7cb5680d0316441e225077011 Fix read-after-close bug in async handler.
+c54ce40d09eddadf90a24fd425a27bc511758591 Limit pending connection backlog to prevent overload.
+71f99a9273a75f5eb8f066b91f5cbed27da8026b Use epoll edge-triggered mode for event handling.
+d630054044fb815c84ec0ee4bddc3b0015302c69 Fix incorrect byte order in packet header field.
+9a5f6ebe1f73c25a40fd2291be7a865fd4904b03 Add logging for dropped messages in queue.
+06e7148525ecaae4f1c5645b072d0880f86c631b Handle broken pipe error in write loop.
+fc0f7363bf2e4f4afc37b9fdbd96dc7b09917114 Fix timeout not resetting on partial data receipt.
+c19b7a79800fb6a8afda7d4c91a99254f750e44f Add send queue drain step during connection teardown.
+542c042d0452cad4b49b94909193bb6d2e99fbc8 Fix missing newline in log output from child process.
+033fafccb46f4896b3f9b66bb4a51c14a94862a0 Handle malformed request line in HTTP parser.
+c6adc86ac8aea6dcfda3f2d7b2e078fcf96aa737 Add connection pool warm-up on service start.
+ca76c2287c1e624d79781a02a1cd6b60b58ecf16 Fix select set rebuild after file descriptor close.
+e9577f1337b8c45b0cea34b6f565c834a80511bd Use writev to combine header and body in one call.
+7d76420932f6cc86f8aecd76b6891bdd9676ea3b Add idle thread cleanup to reduce memory footprint.
+61a363f27ca6b5b77335960995f1cdd5a858d18b Fix write stall when send buffer is full.
+94335ebd584e6b3a494eea003b76b837f95b282d Handle getaddrinfo timeout in resolver thread.
+f8383ff41fa7f4af842ad2bb6de8126087b6361a Add message framing to raw socket protocol.
+e79657250e0fde26628b86f7cde2e0f011fa4f63 Fix incorrect queue depth reported in status output.
+262ce451565873025ebc31315d888b832d720ab9 Add drain timeout to async write queue.
+d8ffcd24a8a8f64fba339e5214e4b054608c6eb4 Fix premature socket close during handshake.
+d0d1fafa53bbd7d0c0499bd157f5b2eaba189ed8 Handle ECONNRESET in persistent connection loop.
+c874a960decc26c0f7493cd464db9eac0e954839 Add per-thread memory arena to reduce contention.
+50afe49f911925448af3a294d62d3e2d4cb4a19b Fix buffer underflow in stream reader path.
+4dbade60c48d4c0be0f3051ec45febeb438d0aac Handle SIGTERM cleanly during active request processing.
+765f4c36b3000f0089bae1c21204972a1dc021fc Add flow control to prevent producer from overrunning consumer.
+c798984ced118910adf319b270356f2613731c45 Fix incorrect read position after seek operation.
+b2e87102d6e62be1d89c42df6a36f5c3f8bdc713 Add health check endpoint to HTTP listener.
+9a853cbcd10f5b38f302ca17244246b8a9f221ba Handle accept queue overflow with connection drop and log.
+9531ff2594abaee861322a64f84b20d7d54c7d03 Sanitize input path before passing to file open call.
+28b3ff266d58f256036b30ac2daeb983744462e4 Add length check before copying string into fixed buffer.
+bd0d3cb33c7b542a50550e04e1ca8eda317e42f5 Fix integer overflow in packet length field calculation.
+451d7a7b415ecbf566486b12050f6220c4a04ec0 Reject request if Content-Type header is missing.
+434f0838e2d55c88e1257b6411d068ff38f034b8 Add rate limiting for incoming connection attempts.
+48f3dd32e19f64c9def94a0304c9d0e63abb7d70 Validate certificate chain before accepting TLS session.
+196271a05c79ec2b3f2e2d5a2fe89c5e9e79f5d3 Fix use-after-free in session cleanup routine.
+24e5983f05f27064049ff684bce6d9cd96abd709 Enforce maximum payload size in message parser.
+5cbe53a4b043c40d4ee8f34c17f51d2724dbabf6 Add HMAC verification step before processing command.
+786217b9b901834a3ea1d51dc1774c631cb70a6e Strip null bytes from user-supplied filename argument.
+82a45a9e7b1c00da1b8396bacea2be04b7da8cac Fix format string vulnerability in log output function.
+796bb33b8c298c8f849fc8e759f3d480337293ba Add bounds check on array index from network packet.
+b4e9ebe2e98dec85026f37aa03942d0dddd9d14a Reject negative offset value in seek request handler.
+46ad6376225c3d0388ede5a4d2955d8494677b26 Fix timing side channel in password comparison function.
+79c07c6ea0896764b84afd56b35ac46b7d386086 Add entropy check before seeding PRNG from /dev/urandom.
+b76be881f39dca522dc484a902412e1f12277cae Prevent path traversal by resolving symlinks before open.
+07eedc2992e3991f0c2b7e02c323b945925b0945 Fix missing authentication check on admin endpoint.
+28ef330d31153c4c326d2c34fe9f398a50e1ac7d Add nonce to replay-sensitive protocol messages.
+176ab811d10252522ab2dc56a1cc9953fea1f073 Limit recursion depth in JSON parser to prevent stack overflow.
+dc9723533328ce0ba93e2fc34d64358d89120cf3 Add config file for default connection pool parameters.
+b913f2e87d07fe82c0afe4ecf9890622e1825cae Load log level from environment variable at startup.
+b2cd81189fd32ccc4e814579b90cdec08865cc88 Fix config key lookup returning wrong default value.
+c6b42ad4872f0916617701da5430e057a8e06233 Reload TLS certificate on SIGHUP without restart.
+bf2aef60c2b2d4f05f6cc7dea46dabbddf41672a Add validation for numeric range in config parser.
+274792e569f518be2b593cf7a47b87bb1e25eac3 Support multiple config file locations with merge order.
+6f4e4ce75787f07654680a2826fc2639f4b736af Fix config file not being read when path has trailing slash.
+bc9726470cc2b4dec6440a27a495a48042426a09 Add required field check on config load.
+f5baf3df88861fc23a8909c227a27b4426d46deb Support environment variable override for all config keys.
+0bec2e736e64f4f7c04cd792795b2d88c24a841e Fix comment stripping in TOML config parser.
+16816ed4c68d6490b227bbe55b73cc24b9ebd345 Improve error message when required env variable is missing.
+a12fca4ff9db3a511283c9a552b9b367fa446158 Add unit test for buffer overflow in packet parser.
+f3c9a61abd2fa2ce1362f300f6866d72126df427 Fix flaky test caused by uninitialized struct field.
+0f94aa81b1a51690ae0a13a25e092fa2130640af Add integration test for reconnect after server restart.
+cd863c235370d8e1683a0c5ec5ca706c9c71133c Skip slow network tests when offline flag is set.
+0083c0330c8f99d4fd68bdedfe2c4ccc363e5874 Fix test teardown not releasing file descriptor.
+c58e2bc0f06210b15e1d41b3f09d71efdb032fe5 Add benchmark for high-throughput message path.
+29e580db1bc47993dfcb87f01b67dd18cc5b0251 Mock system clock in timer unit tests.
+3b69388a51d6a331238bbfda0baedeff8a605ab9 Fix assertion message missing variable value in output.
+32cd23a5b03bebfac0c5df756ef1788cbc4c526f Add test coverage for error path in handshake routine.
+892ee05fa900b6286afdf187c8f08334502be818 Increase test timeout for connection pool drain test.
+6be8e3534f592562cf1e95687296697e84a63ce6 Add structured log fields for request tracing.
+e51dc4ba2266a08326a76417901307df6e0f1e98 Fix log rotation not triggering at configured file size.
+da36b400f5c64bf5c28565dd28844611b98a4ee8 Suppress debug log output in release build.
+9a48bc1844bd27b5e1ceaedc5151b198ef177117 Add correlation ID to all log lines within a request.
+05d196ecab7dddacd7ec0ec842df5f6ca2dc93e9 Fix timestamp format in audit log output.
+60c4fe293519213ee6eeb0502324be000981fda3 Add log level filter configurable at runtime.
+d2698870d35b7768c0ba812eb07d4dbdf9f8c90e Fix log file handle not reopened after rotation.
+e6e6e211be81275265b7002416f3ddb5af7c29d3 Add sampling rate control for high-frequency debug events.
+8a6f0692dc8e71759e8313908e668d0c78650770 Flush log buffer on SIGTERM before process exits.
+103e579059a81766eb5e5e40b24860d534ca9eaa Fix incorrect module name in log prefix for shared library.
+94c85b08e1a604f50fb2f0f59daf8257da07c9df Replace linear scan with hash lookup in routing table.
+a73555d3221d038ec45f2600eacf609d799c68d6 Reduce allocation in hot path by reusing buffer objects.
+db29dcbed9e68885416ff08cad9a3b9fb95dbf2f Add prefetch hint before large sequential memory read.
+939306277b3dade1e78ce525ac7c399c7c7d9846 Fix CPU cache thrash caused by false sharing on struct.
+f85ae94356e50a87d8f02737e65b236c1bbbaa9d Reduce branch misprediction in packet dispatch loop.
+01a868901747762e666d4f435405b6232465a33a Add SIMD path for bulk checksum computation.
+e396fdaa58ad01a25ee2f436183c7fe528520bec Optimize string comparison by checking length first.
+96a15fd7b426a7a87598d4000f4a76f9ca21b6a3 Replace recursive function with iterative loop to reduce stack use.
+b4b84493613083a8a0a45b79f91bf7ae53572308 Batch database writes to reduce round-trip latency.
+6ee01ab82aecacbee8b777ab780cbb8e20cfa8b0 Avoid repeated mutex lock in tight inner loop.
+2f8629f8fa220692705ff9f0876409026e5767fa Add index on timestamp column in event log table.
+3c17c9bbfc6cb263c3a558ea86d1df224c91b440 Fix N+1 query pattern in user permission check.
+3ce740bd519147a5674be4829ea0ced6333198b8 Use prepared statement for frequently executed query.
+9d070e8e0544b1bd233d87a0a05e2a696282875f Add connection retry logic for transient DB errors.
+41addf3efb518a127066d5a9d0acb328f86f1553 Fix transaction not rolled back on partial failure.
+00255bb943ec4757274156f18eec17a35387cf05 Limit query result set size to prevent memory exhaustion.
+0d92b0eb5f9362e8df83f5d4bc383117d14ff8a4 Add read replica routing for non-critical queries.
+6161e72f0722b50c2fbeb3d5918182aa5f46b4dc Fix incorrect NULL handling in aggregate query result.
+a80b2aac14e3d54d8853b5fe68e34275db904dcb Use bulk insert for batch record creation.
+42722dba7d3dcd773a1830c45cd5e8fb5d8fd234 Add query timeout to prevent long-running DB locks.
+5ee362d57058a705518e373fa86cfbde581d19b7 Fix missing error propagation from DB layer to handler.
+f49fe99c97b7f2e8c71ac15202ac2604f4dde6a0 Add exponential backoff for failed cache write.
+edd1aa4be055daeec8001dda0b65ccb833bc7c2e Fix cache key collision between user namespaces.
+8109e3f2219eeda5d6926cd60bb3fe8fad13880f Invalidate cache entry on underlying data update.
+acd5b46f01c56df9292e672aeb4f8f9968b28608 Add TTL to cached session token.
+18cabd1490d924db2ead62f7b18d47dc2fc6dd62 Fix stale cache read after concurrent write.
+e37f6b144b55634fb3330e9b3566c2eb2e552639 Use read-through strategy for missing cache entries.
+c0f04bfdf0aa3fff50a426b32c88e96bf362f045 Add distributed lock before cache population step.
+6d6aabd7d3018d83afae64e10a8a66459ca41ce4 Fix race between cache eviction and read path.
+23093ea4fc4ad75a49f3439f9892df9221e5cfd4 Limit cache entry size to prevent memory pressure.
+efc303ef6ef458365c5d9e04bee8604d188dafed Add metrics for cache hit and miss rates.
+40bcd50f5e2086c278bcaaacf231aa3bc9d54ed7 Fix resource leak in deferred cleanup handler.
+760efd27a15c1df07fccd42c53da25be39b381a8 Add context cancellation check in long-running loop.
+b5d6a733ea805ae68bb61072e67f483fe0cb1939 Replace global error variable with return value.
+18ccf6b46aa264f757f8a490e549dcb3e2e907ba Fix incorrect error code returned on partial write.
+ed3e6eab9679764dcd67427e4eca9314c44efbc4 Add error wrapping to preserve original cause chain.
+66ce62574878349fac23c33b721bc86f559dca1c Propagate deadline from parent context to child call.
+487cb4057773011bc2202372d093811fcf5457e8 Fix silent error swallow in goroutine launch wrapper.
+ec1f9fca082ab32cbb5cfb35e0ab63911ac4ddb6 Add fallback behavior when optional service is unavailable.
+737e2ce4971c13c9fe7a2faadc57acd496be997a Handle context timeout separately from connection error.
+86ec2fc08e1a24b4dbabd651d54a8f43c9050fbc Fix error message not including failed field name.
+eeb28983ec282c09a1b060b15592c9702c9f57ff Upgrade TLS minimum version to 1.2 in server config.
+d6e21ce33574141a050e0fac6983ee39e3441596 Disable weak cipher suites in TLS negotiation.
+e9526edbca0fe99bd56c2567530519fb545d87ab Add certificate pinning for internal service calls.
+2a5fb5dd1cda59d2199c5c8c6f4beab2477edd9a Fix insecure random seed used in session token generation.
+c137c20658eb06a0e09718509974458efd6a65b2 Redact sensitive header values from access log output.
+bb5fb2abc1d83e0dc6c9dcb525bf1e62936d99f7 Enforce strict transport security header on all responses.
+f8bdb011a84b596c9acfa530b816bdb568efcd68 Fix SQL injection risk in dynamic filter builder.
+b3894c06bcf6bc7615f6894e9819a837f2c23cb6 Add output encoding for user content in template renderer.
+95caff7d351897bb7a8388e9d9682f2365640307 Rotate API key on detected unauthorized access attempt.
+0b12644a000b5ef9b4bbe8baf55c5b7a99730fef Fix directory listing enabled on static file server.
+3b6adfc8fce4a4216566196a36cae59365a487e4 Add idle timeout to long-running background goroutine.
+b2b75b06f0271d0449930421d86f0d130a49b6e0 Fix goroutine leak on failed connection attempt.
+b1e371d9876bd67ff411a56a1eaada42a8ac5c90 Cap maximum concurrency in worker dispatch loop.
+ecb5b431a722199543d23bda44da0e2b833a9369 Add circuit breaker for downstream service calls.
+727c1a291da9579970992e619664d5e916157de6 Fix goroutine panic not recovered in middleware chain.
+1022a73fb60aecec84d9c51ad0ec5654a2460d22 Reduce goroutine stack size for short-lived tasks.
+110fadc4af2ac229592fb0d49a10a9119305abb2 Add graceful drain on signal before accepting new work.
+801a7230f73354594a48db6fa34f3b5496d175dc Fix channel send blocking when consumer exits early.
+88da18bdceba0303679e6923b18b0087d406ebf2 Use buffered channel to decouple producer and consumer.
+2dfacc837870587d1b9afac2b1e74ee2152a3a1c Add timeout to channel receive in coordinator loop.
+9773ce513049dfa2e2aa9c93f5dd32f0282cf1a2 Fix incorrect checksum algorithm in packet validator.
+a7603037756408a082aefd60da353f8b9e562f32 Add protocol version check on session establishment.
+185464becefa61a11a0d9dc6ea098fd66f826aa2 Handle unknown opcode gracefully in command dispatcher.
+d79d0d0cc2ef42912f8f71c22cbab27965483791 Fix byte order mismatch in 32-bit field serialization.
+1e38ada8cd1556d83c9cf547296f77707532d6fb Add length-prefixed framing to avoid message boundary ambiguity.
+23ff5d3f0698d4f57395c14241d72ca51a063867 Fix parser not handling zero-length payload correctly.
+334ca1de8e4793b1b12bf93b4904650d5fa1cdc6 Add message sequence number for duplicate detection.
+731725b5041e4f9c3520826da47815273d99c911 Handle fragmented packets across multiple read calls.
+3272757b88f3f3c6d771db6859dd3dd5b4b9b0bf Fix padding bytes not zeroed before checksum computation.
+5bf68ea943fe477b34a2363eb7f29744d39cf083 Add protocol downgrade prevention in handshake logic.
+dcd2f53e2f48d4b49c51df2d3509d2f710986249 Add metrics endpoint exposing internal queue depths.
+fb4e52e75060c89c92a847dfdd4b888dd72310e0 Fix counter not resetting correctly after metrics flush.
+1848ec89580cd44dcc35cd0074b2b6095796e3ab Add histogram for request latency distribution.
+85aee26fb8b584a29b99f601dbd864123e933b66 Fix label cardinality explosion in per-user metric.
+b88e17b74356bd92f1c6c0114c5816ab972f601c Add health check that verifies downstream connectivity.
+9f8053f67db42cfc1812a4b53310b7e7410affdb Export build version string in metrics response.
+295721755c9363149f9800e6a75cd43093791aca Fix gauge value going negative on concurrent decrement.
+e06f2a87c4a42328ff3182fb0d165fe19eb20e05 Add alert threshold documentation to metrics collector.
+3b13f6c2a6c0c8c277b9811973763cddacd59d23 Scrape interval reduced to improve time-series resolution.
+37473987fea6a68d1602159ef64ae4b2c8c00d3d Fix missing metric for failed authentication attempts.
+2b6a1adbab1fca890d72cb06d152dd999f490ce4 Handle graceful shutdown when config watcher thread exits.
+0e0e6547348363278615afc86927c606cdc7d7b5 Fix watcher not detecting file deletion and recreation.
+840020aefe27667102a23d7bbe71a808894cf989 Add debounce delay to config reload on file change.
+5364233209158bfa071b15ef8a2551692f08c931 Fix watcher leaking inotify descriptor on reload.
+11780a80faacf7f2b3d17acc7aedcbd6b00cb040 Support watching config directory instead of single file.
+f64678ee41c60cadeefc41f302a5353448213996 Add fallback to last valid config on parse error.
+a8dfaff6e1b5da45306ec0fe6ccbd94e9333db75 Fix watcher not reporting error when file is unreadable.
+060073e4bafaa749325c7a7e03a620a81b979bd0 Add reload counter to status endpoint response.
+327f460e2ce25c10e7847b5a259442cd2b272b86 Notify dependent subsystems after config reload completes.
+0bf7681ee48e973fa527fa200a575216a9e9d725 Fix watcher spinning on repeated inotify events.
+f66c1ce69d3c7b94e02863c5595c74c2963970b5 Add structured error type for network timeout condition.
+934381fec48a1e96419741766e253e5c1b5c6389 Unwrap nested errors before matching error category.
+f27a81358846ae5a22a3bb2899e42e2782b09083 Add sentinel error for connection closed by peer.
+708d4d43f9a883e4b06b37244baac07aeb0f8549 Fix error not implementing Unwrap in wrapper type.
+89bfe9f14f84a337cebf36b169e71caa0085a792 Add Is method to custom error type for errors.As support.
+a2ae9ec9b69b247aa80b00bd22e2ae286fd0ebea Fix error string including internal address in user response.
+0bcedd05557fcbf550a861cd97bdbe98837283f6 Add error code to gRPC status for client retry logic.
+4096bd6d9538fc5fe7d1b50f7adfa33266467fea Classify errors as retriable or permanent in client.
+bd5d0b5a80afcfd8ad4e114dfe5db5169571202f Fix panic on nil error dereference in handler.
+e3cc71093733b9ad89d7d0b600f75e125fb54dca Add stack trace capture to unexpected error handler.
+e4decd8bd48dfc005f01ac090194b5da31aae144 Replace busy loop with exponential sleep in retry path.
+80f77483259528a7008a3b919ee48755b039ca0a Add jitter to retry delay to prevent thundering herd.
+57861106fef55b0db98c230a462f48862de8f4d9 Limit total retry duration with overall deadline.
+da335b87439e8de0d8bed6eed51584375507e2ab Fix retry count not resetting after successful call.
+25a8f3fd6db85b91031fbc6a6332459f72c64f0a Add retry only on idempotent request methods.
+c9708a362f1998b00932f654cf6f9132a7f35242 Log retry attempt number and delay before each retry.
+13eee21cff877b1dd193728d85e6166475d060de Fix retry triggered on non-retriable status code.
+2eb7f183e8d224c3ea598d642d3d3e93f2259047 Add per-endpoint retry budget to limit downstream load.
+71918b0926f246f85701317bb2a5ba79ce64be85 Distinguish transient from permanent errors in retry logic.
+36b72bcae3dc11bbbe25bb9e9e703e7380089cf6 Fix missing retry-after header parsing in backoff logic.
+285a5531a21bd666894c9ee82a46005bfe2764d5 Add support for Unix domain socket listener.
+f1a695bc21a232c2891bb23fdef132ac65838367 Fix abstract namespace socket not cleaned up on exit.
+7bd709215360f57fd03ec686519bb3f21bcc229f Handle socket activation from systemd correctly.
+465b7de3c2a033e77b2636a8e63117accd87bebe Add SO_KEEPALIVE to all outgoing TCP connections.
+ec1cab49732876fa419bf5ec501013b33409f910 Fix listen backlog too small for burst connection load.
+72ee63019e4695c2c434fa8599ba54ef2ca68c8c Set IP_FREEBIND to allow binding before address is assigned.
+4264d9db37fa3299669389f385d8037b71ffe658 Fix IPv6 socket not accepting IPv4 connections on dual-stack.
+9f23ca3c6715c04dc28610d36ae64238f78864cb Add send buffer size tuning for high-throughput path.
+34d3a8b8dac06423be45948c700c99304d437709 Handle ENOBUFS in UDP send path without dropping loop.
+3185f4dcec0b3c40d6140ba54d3c31936c91d435 Fix incorrect error check after non-blocking connect.
+131587e21801775c9beaca58497a45392d9b8664 Add memory limit enforcement in stream decompressor.
+42b7cd8319339d47aa464613454197f9b33f19ec Fix decompressor not resetting state on new stream.
+8272b289a1ca302e6bff2ca7bb456f80e138a119 Handle zlib error codes correctly in inflate loop.
+4d6c3805779b5ecdf2460fa544c06e778f7f9e11 Add streaming decompression to avoid full buffer copy.
+f89f62d3cbad4efabe8d216ff30065a04d3328c8 Fix gzip trailer not validated after decompression.
+b12baa5f9591a8c794e49eb3c12343a0a8e1e786 Support brotli content encoding in HTTP response handler.
+87d85e05ac0bcab8f4dbc9e3b3b8a7f4349aeb49 Add dictionary support for LZ4 compression path.
+b4a736c62372b6d87bcfd60e83ab8aef2cb1903f Fix compression ratio reported incorrectly in stats.
+8bbdbe327d21f60834bb8d1288e19697301e260e Handle truncated compressed data with explicit error.
+fd28609cffdbb0597d0ffcc873aee84dc69a42cf Add flush call after each compressed chunk write.
+dde432fbd068854c8c3821692fc8cebd2e94223a Fix incorrect MIME type returned for compressed assets.
+d1dc537b11de700944848d040f3eff7a5b2704be Add ETag based on content hash for cache validation.
+17a2bba23d8cd47688da6693f58d96d1c9cbd2d4 Fix vary header missing from compressed response.
+862233e2bbd6755df808131c9dd5432cc1061648 Add conditional GET support to static file handler.
+ace85be17df07f254d470c210cccc9baa5cc24b4 Fix last-modified date not updated after file change.
+05d0edcf0a623247f891350e6e0719b77cd15db6 Handle If-None-Match header in cache middleware.
+a13846f4cbe2549a11f7e0b7135227dbbaa569b3 Add cache-control header for static assets.
+11555e01c0b22a0ddac68a5c548b88b8349b1a60 Fix stale content served after upstream cache purge.
+7ea38257888ca126535d278ced6cadd71965910e Handle cache bypass request header in proxy layer.
+933a432d1f133a9d450ebdcfb124a2ffd00e7cdb Add surrogate-key support for targeted cache invalidation.
+80ee838d08923a7fd0b37ceca15f101dcbfa6805 Fix response not cached when set-cookie header present.
+fc08728f89990e7ec24c452f2a104a87ba4f09c4 Increase max open file descriptors in service unit file.
+360ccba2dbb923636ac8b5a81d77179e053647d0 Fix OOM killer score set too low for critical daemon.
+8c84d3808dfa94003e2857d1e2eec1d2fdd9d6ea Add CPU affinity setting for latency-sensitive threads.
+9ac9429cf392f423ea10262f4ce9397122039921 Fix swap usage not accounted in memory limit check.
+6d5fe83da48782e6ef3e49a01920cd0b61fd8ff3 Handle cgroup v2 memory events in pressure monitor.
+81a6c1495709ba623f78d184451851b466ec699b Add huge page support for large memory allocations.
+a31c9c369e6fc491bd50afdcfc1393b4b0fb463c Fix page fault rate spike on cold cache startup.
+4906ee56c8df136f24d2a75ee7069a8e5e5b247e Tune GC parameters to reduce pause time under load.
+61deb3bb5af79e9f437a47e7156447030bc7c5d1 Add memory profiling hook triggered by signal.
+637dd3669c7ce799e0b85716787f057fe57d84fa Fix incorrect resident set size reported in status output.
+4a85a2a34340ead2370148f722a486c0b0ea96d0 Add trace point for slow disk I/O operations.
+3f5f366193c2f43e026c73c05b783ed227378745 Fix eBPF program not detaching on service stop.
+dcbfb06d15f3931eadd01c1e4297c9d258d50502 Add perf counter collection for cache miss analysis.
+0501a1cd4803594afa1306741282d92107050484 Fix uprobe not firing on inlined function in release build.
+ae35adc6bccaa53d0b6005b4783998a8701dfc77 Add flame graph generation to profiling script.
+870c1d202920354ac4ca97d2b917362dceb4725b Handle kernel version check before loading BPF program.
+07a923df72c39de34fd8654fb19205b334cb2fc6 Fix map size too small causing BPF lookup failures.
+fffb594fd14995e0fbfdd86b06435ccbf48b740e Add ring buffer for high-frequency event export from BPF.
+5c9a3004c622354fd046d3e918c9994975a582cc Fix pinned BPF object not removed from filesystem on exit.
+93174289440e872316dcb75937cf4af47a63d692 Add attach retry when target process not yet started.
+3e272a743c85dc82c8d195070ff53c0effbbb4d3 Validate schema before writing record to storage.
+f15197bfa5085e187288c5d22dc79b1cab073a2f Fix schema migration not applied in correct order.
+164be34713b06b7ac1dfad3543cda97cc028a402 Add backward-compatible field addition to schema version.
+526276fc76d5c7de9ef3e83e19f2064a009e7cf9 Handle schema mismatch in deserialization with fallback.
+f7765102195549c8703563c1f91b6ed56562fb0d Fix index rebuild not triggered after schema change.
+3309ae1ca83954eb95b9b0102a3ac6a4dd671d1b Add checksum to stored record for corruption detection.
+c4b403dd9cc2f0e4584449955c5bd5b8046f0862 Handle partial schema migration on interrupted upgrade.
+870120940207134a38aa4643ba9bf5cf055c6200 Fix nullable constraint not enforced in schema validator.
+3ae8b84a38765528eec5ef07362cf2ce1baadcf9 Add schema version field to all persisted message types.
+4ff3549b67e82bacd5e5ff4bfc897ec691a9d39b Support schema evolution with optional field deprecation.
+c3e519aa10b7a95ae85bc04964a89d43ba67a826 Fix panic when closing channel that is already closed.
+5c7c46612e4f19144af1018a995b86c0fd955790 Add recover wrapper to goroutines that handle user requests.
+57387bd03556fae8efc2a217f43a578d2dfd55fe Fix nil pointer dereference in optional config field access.
+91d348a77b1f8d1cdf9b031b3bf61d1197ea0421 Handle divide-by-zero in rate calculation when period is zero.
+9faf38ca32a4ad34edaf6b878893aadb31c227e3 Fix index out of range in packet header field parser.
+5db49502a52523eba22a057c59c3a51c911568f8 Add type assertion guard before interface cast in handler.
+03b63904f8cc22ab04634137de6448f022038f5d Fix map read during concurrent write in stats collector.
+4bac7c374ee2d1d2147330c5084821f9c2ab889e Handle empty slice correctly in batch processing loop.
+edd6d89e7f05d67a9a71f47f13f4ffc8600fcc9d Add nil check before dereferencing pointer in codec.
+72d729a958f1c5e4e5d61bd2d730a64a646a4aed Fix incorrect type switch fallthrough in message handler.
+923f933d1a7671d98c5a8bc2382f4ce196ba4abe Add deprecation notice to legacy API endpoint.
+1d87995fa366b86358e210fc514be2a427d9dafa Version new API path under /v2 prefix for compatibility.
+28cf4bf73f3feebe407cd0d6ef3528fd76b4f0da Fix old client breaking on new required response field.
+4a84937653957146a2a9fc5004dc3ee0d381ad09 Add feature flag to enable new serialization format.
+2dae9743ba59b3155a35b6909fc4c3d8a34c9701 Maintain backward-compatible response envelope in proxy.
+0a2049d5028c0d20c1c0b43e53c2ed8c047de181 Fix API version negotiation not respecting client minimum.
+8930b4b73eb0b3115f0c73ca62774d621557d436 Add sunset date header to deprecated endpoint responses.
+4f266d544890613a83642babcc6af83efe8d0cb4 Handle unknown fields gracefully in forward-compatible parser.
+8c735a63e1c07d226e7e2e940bf7e0ed7e9bd677 Fix breaking change introduced without version bump.
+ba192af39a5e83769eacdaef5fb3334ec7290d54 Add migration guide to changelog for renamed config key.
+2d19d1bfdde14ea8445c2418eefbae9cd5924ffa Add LIVENESS probe with separate port from readiness check.
+14ae48db1ad1ce170e2059148a87a95737d3faa0 Fix readiness probe reporting ready before DB connection established.
+12ba189886c314df84bacc5197467045d8fd4078 Add startup probe delay for slow-initializing services.
+17fad9777add7498bd7086c286c50c944cad9f9f Fix probe timeout too short for services under high load.
+d5553c7c6f993030992f982adba3a4b8dd7e57a1 Handle probe failure by draining connections before restart.
+adb4c4bd3ea38de32b9743114f93d33c7280dab9 Add probe endpoint that verifies background worker is alive.
+3ae16b239a96eb2c740b759c92b96983dee03440 Fix probe not checking dependent subsystem health.
+5236f0762499c6d75425a8acb76f6ee09330ae74 Add custom probe logic for services with warm-up phase.
+6872cf80a7efe9908b379b310d6dec9b0428a8b0 Fix health endpoint not returning correct status code on failure.
+cd815c17f9d57c423bb8776bd4929e96e8998b0b Add probe to verify writable access to required file path.
+96efb35d0615e6662db5915d6f230d7ce6cb8537 Mask secrets in config dump logged at startup.
+d2beebe95580fb684422abeb47cb18e3ff8c2a50 Add audit log entry for privileged action execution.
+3ade58ca39b50b23ccc385082646f4a21ff05891 Fix sensitive value leaked into error message string.
+201ac350cd217eb73d28dad9aed45bbe841bda7d Rotate encryption key used for stored token values.
+6628df4acd4a2182d137496de9393c6638a6cc4e Add field-level encryption for PII in stored records.
+5258c27b4b1af8c61980544a20f67d91d09ef7d9 Fix debug endpoint exposing internal state in production.
+e6a6ff31cd1941ecdc3c95fc3f86c0889daca3a6 Add access control check before serving diagnostic data.
+2ffccefebd6c2677df2ca14ff22392bd5bbbe326 Enforce read-only mode for non-owner in shared resource.
+600466734d960c7e520801e9579225b3100d57f9 Fix permission check bypassed when request includes admin flag.
+9fb2153be352d5f5e6b784a85365d95df36a1481 Add rate limit per authenticated user for write operations.
+6fc38568807e3babfddcc4df505369205de29cce Replace synchronous DNS lookup with async resolver.
+25fa342b691bd82076270333edd4eab07fedf4af Fix resolver not honoring TTL expiry in cache.
+c687f2e6f88c8ec11f3626c7a65dee840bebc77a Add support for DNS search domain in resolver config.
+7c8156e1dcc62ec935db52422b21f6aa14eb13b0 Fix AAAA record not tried on connection failure for A record.
+666a0b216fbf8101a3f9876bb7dda3837277d710 Handle DNS SERVFAIL by retrying with alternative resolver.
+cc9cfd6d4a8c6b7e2027a70825d150f4ecc47d1f Add support for resolv.conf change detection at runtime.
+3a2ed7171ec29ae2c73283f6b65444bb3f141574 Fix resolver thread not exiting on service shutdown.
+9f441ad631ce2239fa0e847aa2f721e9cd0fb65e Handle multiple A records with round-robin selection.
+1ec234499db5869ede68aa77bfdba1adb79ee4c8 Add negative cache TTL for NXDOMAIN responses.
+b64a53ef33bc53496dbc8c002d4ff4bfc2476374 Fix resolver returning stale entry after manual flush.
+1382b3678461eaeb60e82a9f5f5b8d5eed06098f Add structured log for each service dependency check.
+664a4246476b7d0f277cdcabbd4a72c17b6c5ade Fix log sink not initialized before first log call.
+f784d8270c3a4647a82ce47e3cd1df2cbc2108de Handle log sink full condition without blocking caller.
+ab1ca6ab9801a9cad8c1a8e64f65dc637ded845c Add automatic log level escalation on repeated errors.
+0349660871b99974a77c0ccce6d35150db321d80 Fix log entries dropped when buffer flushes during rotation.
+13cb919127d4cdc2c462745042a3fd998c823748 Add caller file and line number to error log entries.
+8f28eeb0757b48738fd25463f51616aa6bcd0842 Fix log output interleaved between threads without lock.
+51e984468726c1e96a942f771e357b8208f41d40 Add log aggregation tag for multi-instance deployments.
+bc6227970f31af483ee8aa627c260ec4332a04ca Suppress duplicate log entries within short time window.
+a8863f50c02ac89935fb7c752b36efcae8f91881 Fix log timestamps not using monotonic clock source.
+da7b8b1f608b52eb79f8d632da8ee8cc982142f0 Add request ID generation at ingress for end-to-end tracing.
+65e49cd61d23ed69b7989d089bfc8ef160004a44 Fix trace context not propagated through async task queue.
+b5d7138aed3ad28d844be88e485d6408ea645581 Add span for each retry attempt in distributed trace.
+eb827766a59e1354002d1d90a7c3780f017f4a45 Fix trace sampling decision not inherited by child spans.
+31397f8408713cd58fba5c1eb16599bf722c4449 Add baggage propagation for tenant ID across services.
+c1575134a33e14b0fe98ce2848e9cfb8d7965341 Fix span not finished when handler exits via panic.
+78c62e9dca8ae22a8112cd2deb6aa372757e477b Add trace export to OTLP endpoint on service start.
+3628dbf8776850ef44b2cd17f0445616427523be Handle trace export failure without affecting request path.
+c67d7e7eea63262fa9fc7add90ff182f7eaa0de9 Fix incorrect parent span ID set in forked background task.
+9facd9d57e295abbe706af7d3e521db86d53604e Add trace annotation for cache hit or miss events.
+14da984893777ab4cf1fb8594b7d35e2da59dee5 Add graceful termination on SIGINT in addition to SIGTERM.
+b5c2fb50e217abc9f36453c9ca972cb73e0c01fd Fix shutdown hook not called when service panics.
+be82fa4e842a68df817c73100f2ba45d3dc776ba Add maximum shutdown wait time before forced exit.
+50590a1b9bc752c3f4b4859f6f8fc91752c61e3c Handle shutdown during active streaming response correctly.
+18521960a8e9617193eae39c4cb13cb2b74ffc10 Fix connection not closed cleanly on idle timeout.
+548f362cbd64a8858fb2ce51964668c5c03993b8 Add drain period for in-flight requests before listener closes.
+154801f158566c75afe72793786ed04d7880e8e3 Fix shutdown blocked by goroutine waiting on full channel.
+5a991c9842c1365c52bcb67c780c89f1b45396b3 Handle OS-level file lock release during shutdown.
+afa3ab29754ffd1923023fa50376998fb1f84424 Add shutdown log summary of dropped vs completed requests.
+365fedaf74058566f86d4f2372a4b3ab30f491d1 Fix deferred function not called on os.Exit path.
+d89bde207d53e25e5d7844ff125751a2be7e4bad Improve error message for missing required command argument.
+80e7ef3eb6a82b6b9b90707fdf1678456220ef0e Fix usage text not showing optional flag defaults.
+aa85a393bdcafd295bded1ee1e7598027e52cf9c Add shell completion support for subcommand names.
+00c0e742f548e949cb7b278dfed588e8e6d7d73d Fix argument parser consuming flag value as positional arg.
+42c4122f53ab81ed005ab35392cf9840b06a3da2 Handle unrecognized flags with suggestion for closest match.
+497ea173c0c69516a27c52f23e096a1f4ca32e59 Add verbose mode flag to increase log output detail.
+c5303f99bef7734be7ea3af08b61dc1b710cd810 Fix help text line wrapping at incorrect terminal width.
+fba141490ab8bf5f0da8474116456c52690f71f3 Add environment variable fallback for each CLI flag.
+09d1071762bb86299de35057f7882627e30e69b9 Fix exit code not set correctly on argument parse error.
+7e41f1f87c97871d832a7ced1d86b71c11e19bb0 Handle stdin input when file argument is not provided.
+3fac57fe6eff722ebed1a585a7b49a4f0a8c9e38 Add lock file to prevent duplicate daemon instances.
+ab724bdbfb1de80687d08bbf77eff28a6f2b167e Fix lock file not removed when daemon exits abnormally.
+72f38e6612458cd6c09e38f898919f374c57c59a Handle stale lock file from previous crashed process.
+8b72c18c524cea511dd43678aaefe895bc106dd2 Add PID file write for service manager integration.
+bd917d8f169968d2b4557bda2d95ae24d6358d0e Fix PID file written before service is fully initialized.
+99cafd448c07f8603395d140bdba86633d8f3276 Handle lock file on read-only filesystem with fallback.
+f3014d5c5eb9e5b27c6d328848a5ea7a9f17208c Add lock timeout for processes waiting on shared lock.
+ef606377343dbd59bbcb5f798a01ae51e4f107a3 Fix lock not released on panic in critical section.
+4bcb29a578a02dd17d466c243ac6d8d90f0ee50c Handle advisory lock upgrade from read to write lock.
+eb37892e2241020e6d8351874c7b5547ab380703 Fix incorrect lock file path when workdir changes.
+6b7d02aa96bb4f7715939234a4cb8e72b14ddad0 Reduce allocation rate by pooling small message objects.
+1f328b67bd88fd0600ebdc09de911cfde93ea060 Fix pool returning objects with leftover state.
+354bcf3ac346ab441985cbe6525af3a61cb6b69f Add pool size limit to cap memory usage under load.
+cca17998eeaa04eb7ff90ba3317dea9abfcd1fde Use sync.Pool for temporary serialization buffers.
+5726094a37a48e521064a1cfcc4f453a7710ec73 Fix pool object escaping to heap due to interface storage.
+7a6d62978a35260ca1a72e853363a5cca071ccf6 Add pool warmup to reduce latency on service startup.
+a0098bc858e256b144d8a966950901972872833b Fix object not returned to pool on handler error path.
+b0a9d72d9338b4ba85234caa4d701131686c4057 Use typed pool wrapper to prevent wrong type retrieval.
+3b6b863fa3f812311760f2a15f8b4ec92d8d3596 Add pool statistics to internal metrics endpoint.
+81289494e3f85d8dd8a5a67fd95ef8beb979a04e Fix double-return of same object causing pool corruption.
+50b28b8587aab211b80a9dd050f33fae7d18f23d Handle partial line at end of log file during rotation.
+ffeb9439680fa54a5224893ebd07e50d804c0a63 Fix log reader losing position after file handle reopen.
+8edbe54b6ad612f0fcd1b057f23ddaae005e0c92 Add checkpoint file to resume log processing after restart.
+917bc828d975f54a1813134ae7099dfb2c776ad9 Handle compressed log files in rotation directory scan.
+b38da8b1a9263bd2e1b531fedae98961e60f9333 Fix log parser not handling multi-line exception traces.
+c2bb329c386341fe65db5e9b03d3fa6ead825d6a Add log format auto-detection for mixed-format files.
+89e29ed030787e99b5a714e2cdbc557f2ae97434 Handle timezone offset in log timestamp parsing.
+13da019a33610e6c342962cd4eefa07a27b79ac3 Fix log reader blocking on named pipe with no writer.
+35dd89373c85db337d07ac4ea7303f87ae58ec1c Add configurable buffer size for log line reader.
+7ab7312f9669d16b94d22c8b24edab6c4807e650 Fix log rotation creating file with incorrect permissions.
+7d63dbc8a4c06ff5086ae7c25371b02ace9b60bc Replace polling loop with event-driven wake mechanism.
+fe72e7d83cad985f1ea4c411006b7b0bae492769 Fix event loop not draining all pending events before sleep.
+1aeccf5718b4d0aa15e5e0c4c0ed58c0414c0690 Add priority queue for time-ordered event scheduling.
+d8934612c44b86efebadca5c1e32288ffb91d47e Handle event delivery to closed subscriber channel.
+f7bb93847879416455feb414a11a04ca03cdce8e Fix event callback registering while iteration in progress.
+1759fb2b617afda5c1182cae23d543843f4c16b1 Add one-shot event type that unregisters after first fire.
+da2a97ec8875f95191a4f0294fceb4f84b09a250 Fix missed wakeup when event arrives before wait begins.
+c6aa22fe111797f62ffe4308dded51c956b4cfc0 Handle overflow in event sequence number after long uptime.
+a386aca8213ed65dd5495570cb38b222548ed658 Add event drop counter for slow consumer detection.
+58af2891ceeaa80ceb255aba442369f33bec29ab Fix event loop CPU spike when timer resolution is low.
+ef1a8a7063819c6dba851e6d80ae935d4309e978 Add strict validation of input before forwarding to backend.
+aa186d2bcf9fae58e22d2c1b3646ef6666377c4c Fix response splitting possible through injected newline.
+2847da1643c922adf86e2e79566dd4d79efbec22 Handle null bytes in string fields before database write.
+3f2dbe7be486ee2e01f2f8956cdce21f30d8053a Add output escaping for values rendered in log viewer.
+729a1c8f74fe4baf69414e7f335a003c99d7adf0 Reject request with oversized header value.
+6a5a7a809c127dd2419e08278be665dfe987b60c Fix CORS wildcard origin set on credentialed response.
+d670e7d998ef473a5d004f6c6a2d7df46fd3283b Add SameSite attribute to session cookie configuration.
+935f1edb0b448771e8db8b3064f5bcfa054aebf1 Fix X-Frame-Options not set on sensitive response pages.
+7d1acd21197ae16f950313094177efa613579053 Handle HTTP method override header only from trusted proxies.
+69e87bf144e1f47d3023b9a3b0a195b68df22963 Add content security policy header to all HTML responses.
+3c14f34ed2f02f1ab5d31c99a34159a3e8622162 Fix incorrect Content-Type used for binary download response.
+eb51f430a2b8489252c603b16c738c1c5fea94c9 Add middleware to strip internal headers before client response.
+cea45fce3ad0f87ab57f3d25752d42d485f8bac5 Fix request body not fully consumed after handler returns.
+aa5d5c2ccd6459db1b0934d0dfde8a06f048616c Handle chunked request body with explicit trailer validation.
+e37fab25807248344ea687eea54c1bda9612f8fc Add request size limit before body parsing begins.
+94df5da79bcc1c4d6f963b516d6fd1e61a9a6622 Fix response writer not flushed after streaming complete.
+2e18eb00dd391ca621753a3bcc4f091823604835 Handle upgrade header for WebSocket connection correctly.
+22b7da6e8510cbaf89d737585a4bae9ae18220f7 Add idle read timeout for slow HTTP request body uploads.
+ea5cac3ce55ffcee7854f2671b08874b3df84bec Fix response status set after first write is silently ignored.
+91fb2bb4f7451455ad9e14361d3242365ede1d70 Preallocate slice capacity when batch size is known.
+df508c0369f57d2ddb728976de4073496e84729a Fix map growth causing excessive GC pause under load.
+74aa024acad1f914b7e11015fdaeaa12a6f6f4c6 Use bytes.Buffer instead of string concatenation in loop.
+42c2fa0f27ebc2c5968e12fc29e9d8afe661f740 Add object size limit before deep copy operation.
+663a33bfdade8efdb2adb91d52586584cce61101 Fix unnecessary reflection use in hot serialization path.
+a56b5985a7e652b42ab3af175e7d4b955b23a4a1 Avoid interface boxing in inner loop for numeric values.
+ce73b46b8cf46dae73918c80cda96be9c644936f Use unsafe pointer cast to skip redundant copy in codec.
+3053e7fce65af762e164981e7bebac50a2588016 Fix excessive goroutine creation for short-lived tasks.
+1b2b075fa66121834485467b80658dc060b46ccb Add sync.Once guard around singleton initialization.
+c911e9e0701bee408fa430de1ecbf3effa09c373 Use copy builtin instead of loop for slice element transfer.
+59d14b30c768ec5096f45697e7c5f20e67e299c2 Add fallback value when environment variable is empty string.
+38878730286df11ee3656eab2d51b2be0e173892 Fix secret accidentally logged in debug output on startup.
+2bae22f05fb1d37e34f62e405a520125b8282678 Handle missing home directory gracefully in path resolution.
+7094d36445125f906d3948b2e81a0bcd2188de02 Add validation for port number range in address config.
+1474bb8e84667252fc2ad9d7c10466ad79497ea3 Fix incorrect default applied when zero value is valid input.
+edee585bd547b3e5a1f1b524a68f862710c8569d Handle symlink in watched directory during config reload.
+6aed718d1586b04e3ae4ac64eb7ab38697b6d931 Add warning log when deprecated config key is used.
+4d3b2e66ab3cd36c4f7a97e4844237590a5e6ab6 Fix config override not applied when value equals default.
+34e24f97170213982f82a309d10b047edf1cd748 Support duration string format in numeric config fields.
+30bb0c4dea872b691ff38e2d039c27796461c49e Add strict mode flag to reject unknown config keys.
+a4dbbac1637d2622a7a7311104c58bc15230842f Fix goroutine not stopping when parent context is cancelled.
+2d0a6f9dc5940d7493253464fdafdf2bfabc2367 Add select default branch to avoid blocking on closed channel.
+f6c3b8a708075abe362f8b74e962d462a01cba31 Fix WaitGroup counter going negative on extra Done call.
+3b14fb4834dbce45f40a94980d4f8fe54332b978 Handle panic in deferred function during shutdown sequence.
+cf75f6ac73456ca6b3be6f38b763f3430e8b1a3e Add timeout to mutex lock acquisition in high-contention path.
+2cfa28eb1e8647fec12a25aac4c7a1e665d70d88 Fix once.Do block not retried after first call panics.
+a562e03b65e7385f01aa1c1523b1c25628f550e1 Handle signal received during syscall with EINTR retry.
+24037fee6e267734db01a21e67678651064ae184 Add worker restart logic after unexpected goroutine exit.
+f70ad92958fb6748a95bb7124a966aeecac144e1 
+94a04a83d52564f44056fe9b81533baadddefec6 Fix memory leak in buffer allocation routine.
+d6ff640cc37530f207c8078b197f3b58a7ee390c Reduce peak memory usage in stream handler.
+3890eef720c9b0a6ace832e79222f2ebe25ab5d1 Add bounds check before buffer write operation.
+42657f8e3fd72c9df4adcd4d809e490183ac8209 Release allocated memory on early exit path.
+dd91e79f8a6efbcece09e511258bedbaa471639e Replace static buffer with dynamic heap allocation.
+ea732a9c21f99356e61e86adecbb9e30e11cee8e Fix off-by-one error in ring buffer index.
+f0e980c987e99a3cb781158c69b4300b0afd851e Increase default buffer size to reduce reallocations.
+422a5bca01acb281b62d2ad19b0aa63b9e651fbb Add null check after malloc call in reader loop.
+54d3503486424169fe801e7e5056bea0b7ed573a Zero-initialize output buffer before use.
+a011c171ef1bfe5f9122e33da7d0aabdbbc451bb Fix double-free bug in cleanup function.
+65773207e109745581de484829fdba22cabbf04f Add retry logic for failed HTTP connections.
+8990a5f13303236c8ed3901371289558badcddfd Set read timeout for HTTP response parsing.
+d09e8f0aa305a667dd40f11fa6dc246d9f3ab843 Handle HTTP 429 status with exponential backoff.
+07a8c1ea454cefc3072542b47caa08531552a77d Fix header parsing for multiline HTTP fields.
+2ede7f73344a8d7c145013658124aa8e6e8bdbde Add support for HTTP chunked transfer encoding.
+0ebda324c28fd3db9405ca8e97d96fde4bed853f Validate Content-Length before reading body.
+b9f62f78aa617d887254ff4aaa638dcc50786851 Fix connection leak on HTTP redirect.
+a8b4e8f26280877b07ce8118adfe55b4ee989f5c Add User-Agent header to outgoing requests.
+cb63a46e981a2bc8cb02d78b4c301fffad17cf00 Handle HTTP 503 response in client wrapper.
+c787c7c78e4662f8218598ed3f46776dc87e0760 Fix URL encoding for query string parameters.
+4fe3b7958971402badd19eccf3a1abf18173639f Set SO_REUSEADDR option on listening socket.
+e0576014faf611ac26e2e9ecfeff5ddfca619194 Handle EINTR correctly in recv loop.
+6f0e66c87a2602b7788fc7328a90cee1d8629a0b Add socket read timeout to prevent indefinite block.
+530d992ec35a495050b2e92b4f3054d469926590 Fix file descriptor leak on failed connect.
+97bf6231507a7a570767a2b228d8a1625ed4a33c Switch socket to non-blocking mode before select.
+b878af71e40814e6ee7de8a641a58c901bc5a72b Handle partial send in socket write function.
+5ad40b85442f45f65a533b454bcd4cc63b27159c Close idle connections after timeout period.
+6639a38a1b656282d1f14f619536e2168b74310c Fix bind error handling for port already in use.
+1859c93a2999f25d74cefbc0b9181709da1e90f8 Add TCP_NODELAY option for low-latency connections.
+a80260a5ee2abdc61b98b3feb7d6393a75f43e4d Drain socket buffer before closing connection.
+5cc4874ba666e4a95644acc7bbe34e300df0b19b Flush write buffer before closing file descriptor.
+cdf8f2ff760cb389f2fde283332cb7d78dfffd95 Handle EAGAIN in non-blocking read loop.
+ea89e01fdbd71da12dad272b69958676d716ef46 Add retry on partial read from pipe.
+c89609b0b21596bb3726b8c2e710f98acba5cd4d Fix file descriptor leak on open failure.
+324c8e71a1bb4773def2768e327d56c6a284e9f5 Use O_CLOEXEC flag when opening files in threads.
+88755631865159c2d6f94c5ec3c51098c582fc39 Batch small writes to reduce syscall overhead.
+b9048e2848e89e99daac5eb187201db86332e7d9 Handle EOF correctly in line reader loop.
+42df403ad1de891adc601d118de81d5806751c9e Add fsync call before renaming temp file.
+30fd730accc7f57337c1c03b11215139c4333b82 Fix error handling for truncated file reads.
+dbafb2374bddca8f02b3488e950d45600ff65f85 Use mmap for large sequential file reads.
+d2483038e90d554e79f2e2014b3da57b7576cee4 Fix race condition in shared queue access.
+7efae8b610dca9d647e8075a52085d1d80118718 Add mutex lock around stats counter update.
+f2ce07221e3f77f0ee38856e4e026ccdc0088a59 Use condition variable instead of busy wait.
+3b9d985e445cb685d04e7149404755e9a4ba77ca Join worker threads before freeing shared state.
+40c9bdd516fd6babdabb123da06255328577b637 Fix deadlock in lock acquisition order.
+29c23b7bdde03524eb6769791dec3d4754e97b25 Limit thread pool size based on CPU count.
+ad620aee520fb3c061e25f688aa6a7072677caee Add thread-local storage for error context.
+2e4e74f7d934607c7c885dd0e1548eb7c1ad326b Fix missing unlock on error path in handler.
+5a52c019142fbfaf49fd738a427fe48bafa304e4 Use atomic compare-and-swap for reference count.
+ec604a6a332e410d2c0ddade68d7c7bfaf690422 Reduce lock contention in hot path.
+f8e1f5539533c25e2f4fae598fa4f119e5566dea Handle SIGCHLD to avoid zombie processes.
+149221f131ee19d04ab97d471345c69d5c7ed0d2 Add pipe close-on-exec for child processes.
+98b197623c2fb9699a61d5d732ee90db4b7a1697 Fix signal handler to use only async-safe calls.
+d11d9206435d46a86331a7ae3599a230c1db9e6a Reap child processes after task completion.
+99bf7dcb982880e900d347a7ea0969499e673a1a Use socketpair for bidirectional IPC channel.
+3e5cb987e221fa0e8fae810f8a11f2dc73653298 Add process group handling for clean shutdown.
+6993bbe4831918731a7096424cba485009a02667 Fix shared memory segment size calculation.
+af6787764560299c022e25706250d1436aa2d53a Handle SIGPIPE gracefully in write path.
+9ad5d10860f37698cad2247a5629e45aa3b578df Use semaphore to synchronize worker startup.
+36d2a2d67fc4e35bdf1d4440da36547426357ffc Clean up named pipe on process exit.
+328a136f43d10a724cf6703ffa97c1364db4d9f8 Remove stale connection from pool on error.
+8eb1b5b3b965ab8119398c5c7974765334f89453 Add backpressure mechanism to input queue.
+55d78bbb81a7d57b968381fbc2242b548f7f20c3 Fix frame boundary detection in stream parser.
+2f6234d758ec6d8bdd98a0e8ebcbf23e0e41055c Handle partial writes in async I/O handler.
+3d892a0acd0b6b6e06f8cf2b3811a605894f37ce Add keepalive probes for long-lived connections.
+59186f8b0669ea4042ede99d06a16ecb5afc8971 Fix select timeout calculation for sub-second values.
+39ce427f1d103d730a9f549830bd776fff5a74d1 Handle process restart on unexpected exit.
+9ff6caa6591c48a60505f8db136bd4589786026b Improve error reporting in socket accept loop.
+5a1ea6b4a8a2f5f8c107e627f3d3f3789400d0e5 Add watermark threshold to flow control logic.
+36faafeec177b6be23e884846756d2540accc742 Fix iterator invalidation in connection list.
+94d123b80754b3795e7f5b8dc95f43a44826c84a Reduce syscall overhead in poll loop.
+48c2708fcf8b747ab157534e08405ecc46544637 Add graceful shutdown sequence for worker pool.
+120c13ab5e9b686d5d2f723314260d0df7c3f326 Fix read-after-close bug in async handler.
+95ca5f8af6776297d6b7ebd962e668de282c87c5 Limit pending connection backlog to prevent overload.
+9ad0bdb4269ca35d21df2aac65e55d9492d8963f Use epoll edge-triggered mode for event handling.
+b4e5a9084c0958203104a8aed64616d8bf023d09 Fix incorrect byte order in packet header field.
+ac064cf0a89604663c611722f13f6fb9a0462b69 Add logging for dropped messages in queue.
+879b982abbcc425db2b22a7dc112b423264d9ee8 Handle broken pipe error in write loop.
+e7216a35d2d84d115a3f39b27d475b75d9fd31d5 Fix timeout not resetting on partial data receipt.
+057cedabfea8c3949d3115c58715c74e4eec3485 Add send queue drain step during connection teardown.
+f39839c0ba0b2ce7feb8165ac5f0d6d9b5bcf6ef Fix missing newline in log output from child process.
+f6605f75661c9f657476ae9edb6d9f3e919c3c38 Handle malformed request line in HTTP parser.
+1191ba05b3399c299f9752b33b85307f78a076b1 Add connection pool warm-up on service start.
+78f01b5109475328e140160190fb4e7b6eb3f5dd Fix select set rebuild after file descriptor close.
+fa17c4cbbdc99b0c41bf9aa5ffb1a0a363cd1ff8 Use writev to combine header and body in one call.
+3e3bfcacf4b8401e5d8e171a47fa5c9aa5a55a6f Add idle thread cleanup to reduce memory footprint.
+89b9961f4cb3f174b1bbbc3096b3521b3a73a2b5 Fix write stall when send buffer is full.
+542b5e9561481f2e342bf66e1f4625453c999ebd Handle getaddrinfo timeout in resolver thread.
+1f771a0e7cd8b607ff383c14d99158162c1976d4 Add message framing to raw socket protocol.
+38e39094d0c80e12cbb20881e76129a50e3ae3b6 Fix incorrect queue depth reported in status output.
+d0ee6ccb013c86e9a3a208815266f622faf79b2a Add drain timeout to async write queue.
+5feca715f3bc602783b9d33064dd0a9ceeec34b7 Fix premature socket close during handshake.
+3c85be8b5ee5e60b4dd692193e8af5204c26dac6 Handle ECONNRESET in persistent connection loop.
+f7c8d5c1fd072d6232b64069348d23e46ebae260 Add per-thread memory arena to reduce contention.
+2e9cd48ef2200626493a0fef2b845c6e6f1cb190 Fix buffer underflow in stream reader path.
+96338df551c9801a3af6fafc8c1fd3303497356f Handle SIGTERM cleanly during active request processing.
+8f424b5fbcbca0849978d4f46f63b23e21a27938 Add flow control to prevent producer from overrunning consumer.
+e394fec8e4dc040de2eb5d648c6f58894d779b13 Fix incorrect read position after seek operation.
+1ee733dfca3d23c397538c04b41ac2a72579044d Add health check endpoint to HTTP listener.
+d93c542489eca74ca4c54a8fc8e2a427f1a05e30 Handle accept queue overflow with connection drop and log.
+eff0a4aa30997d62b821b18ab23219ec0b0d035b Sanitize input path before passing to file open call.
+156dcc427a67efa5e2c282f6be0dabb39f67fb13 Add length check before copying string into fixed buffer.
+32be7fe363a0785946802044db2f2970bdedb1d4 Fix integer overflow in packet length field calculation.
+0cf267649e2305c3e14e99a6a3f85f718ef2d178 Reject request if Content-Type header is missing.
+b4bcb4cae938083d8195ccf02bb8bcecb0e85f56 Add rate limiting for incoming connection attempts.
+7d59c49b1f5f71bac038780341c2b49dacd8fd02 Validate certificate chain before accepting TLS session.
+85255ebe68c52e3bd0ac6163e402ac846580b1e2 Fix use-after-free in session cleanup routine.
+75f77e2d66b05411ec592ab8f9bf032b3a431df8 Enforce maximum payload size in message parser.
+91c16b7265a753115920b1279094430039cf14b2 Add HMAC verification step before processing command.
+e381b2989a54426368a094f0f91cca486a14432c Strip null bytes from user-supplied filename argument.
+52e518089e2c87c09522260afe521f63fea33e7d Fix format string vulnerability in log output function.
+4a35719db4975b54945b454892ba564b5735699b Add bounds check on array index from network packet.
+227e82052d4f2c1a33fa41eb689065073ce7898b Reject negative offset value in seek request handler.
+0b1e7ca88cf2a7b0756fba6a44774a1424190d67 Fix timing side channel in password comparison function.
+b61f23ad43dba681b107ef9c4eeee917ef66a8ff Add entropy check before seeding PRNG from /dev/urandom.
+d20bc5f2b57a8906812ce2150e273b9897e00578 Prevent path traversal by resolving symlinks before open.
+c6da90e601440c642422c7add53e68b533ab7f5f Fix missing authentication check on admin endpoint.
+69f6cf55a1ba30745d4a167083856b4757f0c111 Add nonce to replay-sensitive protocol messages.
+8f26370108d421cbf21a93d1171144121213997b Limit recursion depth in JSON parser to prevent stack overflow.
+261256d9a9b536771e7a1f991a39f979850a85e2 Add config file for default connection pool parameters.
+80a66bc0ca4f5b0ee157e0322c043b90f740e422 Load log level from environment variable at startup.
+92690f55f04d6ee73c5543917aeda762d1f19cf6 Fix config key lookup returning wrong default value.
+f82b3b3e9fc6eee546dc33a9c03bbacc3ad9288a Reload TLS certificate on SIGHUP without restart.
+02dba5a48bdcb7fb42388a083139139a5c010e8d Add validation for numeric range in config parser.
+ffa80529f928bb576e36eca0d015df9937c5eec7 Support multiple config file locations with merge order.
+596789014c95318e12f1d8269d349cdea2e8f1e6 Fix config file not being read when path has trailing slash.
+782e7de122cd2cd47ef1140efe0affaf65bf0ee0 Add required field check on config load.
+5f22f94ec56c84f80e626937d7f1b210817fda5c Support environment variable override for all config keys.
+3b6615f01f7c6aaa661701436e30991eae3d62cb Fix comment stripping in TOML config parser.
+bf25531dda7741617660f832d5679163a2f41363 Improve error message when required env variable is missing.
+4f368423d4b326ea1f43f781398e733a0c58947d Add unit test for buffer overflow in packet parser.
+77a957fa1b09e1bba6fe23eb10f6237211077023 Fix flaky test caused by uninitialized struct field.
+128924a49131bf9e52d3cd07a3212585311ec65b Add integration test for reconnect after server restart.
+43d3950b25163f4cc23350bb70211d94cfb8af21 Skip slow network tests when offline flag is set.
+aff550437c123803aa8709f16029a6aef343ff82 Fix test teardown not releasing file descriptor.
+d12966138d763e4eb08e5899bb4f1b3a9022983f Add benchmark for high-throughput message path.
+990667dda01341af394df17692093e87dfb86bcc Mock system clock in timer unit tests.
+49ae75021fc6d4aef596f6666b420f737512e0df Fix assertion message missing variable value in output.
+bc3c36450e156533f882d93714819bef794dc0f4 Add test coverage for error path in handshake routine.
+0f9d96e3575389f642a24ecf83cace03520bce5c Increase test timeout for connection pool drain test.
+4abdf3e01868cb34dff2a82a1aaee6ef7c489c08 Add structured log fields for request tracing.
+412f179647d5e99234631796b9e7e8e280becbf8 Fix log rotation not triggering at configured file size.
+d4763d533b03a389f561faf52fb9faac7680e53d Suppress debug log output in release build.
+62509b9bbf72abd6cdb336a3a1eb7eab44c393ad Add correlation ID to all log lines within a request.
+6f1f7852783532eed26fb96fffbe8c47ce1e5edf Fix timestamp format in audit log output.
+cc9ab1ddb5b13fe5c2a9a06f51daf8f595e3b611 Add log level filter configurable at runtime.
+f178a8196adc45c990d5b48f8bc439b3e86b974a Fix log file handle not reopened after rotation.
+1128f37bd3241f2ca346d3bce9b444c2a6983fb7 Add sampling rate control for high-frequency debug events.
+3c410b382a8cdf833ca0d786a0f228a7552db53f Flush log buffer on SIGTERM before process exits.
+cdd9e8cdb8bb7c9757831284d5b7774528becde5 Fix incorrect module name in log prefix for shared library.
+b8da095c617ae9f5f9536e47bc105cf0dbde5b98 Replace linear scan with hash lookup in routing table.
+352c0dd908e5b13463c8b96a068377c5af2b8eda Reduce allocation in hot path by reusing buffer objects.
+df8ddae6d6bf3e4df4a88cc2122dabcc03bb6025 Add prefetch hint before large sequential memory read.
+bfd8035472669622dadf981191d7b50f750205e6 Fix CPU cache thrash caused by false sharing on struct.
+f88d6986e2b09ee77e9e965b45a1caba14c76963 Reduce branch misprediction in packet dispatch loop.
+8f71d7631241ba6918a25cb09e1740167d7d2a47 Add SIMD path for bulk checksum computation.
+077afd82256e4c97370327d139e6cb4efb238d37 Optimize string comparison by checking length first.
+bf081ffbd9dd7704ed05e90d60a50eb5aa074752 Replace recursive function with iterative loop to reduce stack use.
+a2fa475ac44de2b38f1597897f5a04c0f98d7925 Batch database writes to reduce round-trip latency.
+456bb30b89eacaed266c27e9ed81fe663920a23d Avoid repeated mutex lock in tight inner loop.
+b7bc57ba3150cb566899a8ec618be186757b6360 Add index on timestamp column in event log table.
+cdf7b981fc6cf8a171c2fac2a056dcd7bdf8e56e Fix N+1 query pattern in user permission check.
+5a68168795708aef46ea3e98734caee7efad1578 Use prepared statement for frequently executed query.
+6df55c07898cfcea211745594632074d84e8b03a Add connection retry logic for transient DB errors.
+377fc37c5d01900d8cab7ec863999a416d62646d Fix transaction not rolled back on partial failure.
+ca6e1cc2efea467a64532ed90422a00617690009 Limit query result set size to prevent memory exhaustion.
+2fcecc25d40c2019bde772c8a4a800309368cd56 Add read replica routing for non-critical queries.
+3dddbeecb5aa1edb32553bad67570bbcfb24a7e8 Fix incorrect NULL handling in aggregate query result.
+576100efe46357ad9a2a1069028cf3401c14472d Use bulk insert for batch record creation.
+5ce0320c27c0287a74ce4cd6f30f1a68b9f7acba Add query timeout to prevent long-running DB locks.
+e817576469091b56790198895fa8709e16da7e13 Fix missing error propagation from DB layer to handler.
+efe615245636952d4d007ab4afacb16fac5f4bff Add exponential backoff for failed cache write.
+0c8fb4923a45225c1c429ce1497b624b835c3c04 Fix cache key collision between user namespaces.
+5b86f4290ad0ec55edde67d9389f342ba45616f8 Invalidate cache entry on underlying data update.
+e99f651ccf9f1295b3fccdde66a585a8480b6ba9 Add TTL to cached session token.
+95d5895e416140162d160fb7975155d36f231c8e Fix stale cache read after concurrent write.
+c48babc73c3d8d746ed4d2a9ef131f28e2279e31 Use read-through strategy for missing cache entries.
+33514cda969940f4e79d6bd384c9377763405ad1 Add distributed lock before cache population step.
+c392d953d840751cf3409a69df5729754ed9de72 Fix race between cache eviction and read path.
+b4d7e1950e83d0cf4aa384107afeb0c6abd6b84e Limit cache entry size to prevent memory pressure.
+0738bb705a592716c0bcf6813f7819d92dd154b5 Add metrics for cache hit and miss rates.
+aba501584305f47460c2d8625f4ef7a918532302 Fix resource leak in deferred cleanup handler.
+12cde93ca99d4aa57e9d5566fac55631f8b2fc6d Add context cancellation check in long-running loop.
+fb9ae712775504086d74a1decfa163484d34eb1b Replace global error variable with return value.
+2ab6bde28b799d5c0a5d83d540d41fd225ade07b Fix incorrect error code returned on partial write.
+03229177e1ccd4ab613435bd36cf3fcb6ad04164 Add error wrapping to preserve original cause chain.
+dec847c965794c6304dac8b682afbb058db13d20 Propagate deadline from parent context to child call.
+e1a984e1b816ac5ebd475e4e3f3c7be62edd8c3d Fix silent error swallow in goroutine launch wrapper.
+768e3fce125c92db740dbc945f8d9fe2a6215b06 Add fallback behavior when optional service is unavailable.
+58bb7f3b97253f5a91339c187ea44e862917ef36 Handle context timeout separately from connection error.
+6cc3ae8998f55f36d07db9923985d16ce79c2ea1 Fix error message not including failed field name.
+a08b6e97bb7ac499ecb5a4823790ec99ea0049f6 Upgrade TLS minimum version to 1.2 in server config.
+227eab1f94d009ae71d7e97b634fb99c667cefe3 Disable weak cipher suites in TLS negotiation.
+b766c9e79922367ce8c171af82904a4166bb457c Add certificate pinning for internal service calls.
+c69ceb0a0406ef6ed7bc85ab14b0d57068d0504e Fix insecure random seed used in session token generation.
+ba1138d5e984d851c56356d0dc24d9dc4cee28cf Redact sensitive header values from access log output.
+97693d4694ed7f5c0dc42d91b6018e8d5488c8d4 Enforce strict transport security header on all responses.
+4ca573166bac1a616b7b9455edfd23c9cfdea77f Fix SQL injection risk in dynamic filter builder.
+521a3d678010f62f3d1bf872af9317a580a36e0a Add output encoding for user content in template renderer.
+dcbb9846937083fbda6435d7da5ab0edaa51ddb6 Rotate API key on detected unauthorized access attempt.
+a54199910f5cbd4de5de983e1ef2e6fc95c31777 Fix directory listing enabled on static file server.
+603559c3b9880f7c6759cc7b63d66e32ef55eb8e Add idle timeout to long-running background goroutine.
+dddc78745a6adeef5af23735ad4e16382c41aed3 Fix goroutine leak on failed connection attempt.
+0c3b5510b6a09df0f2b947a5c78f2807f79f79b0 Cap maximum concurrency in worker dispatch loop.
+d2de30005dbee034f84fc71062a1a0f5877a1e1e Add circuit breaker for downstream service calls.
+e3521593c2d36f8c1ef3cdca4fb77334ce0b7fa7 Fix goroutine panic not recovered in middleware chain.
+f283410c1cff99d4edd77a07dc0fc47fb8889738 Reduce goroutine stack size for short-lived tasks.
+d75d65f76ba6ac77e195b90ad28f302a472267e9 Add graceful drain on signal before accepting new work.
+7114c695fc94f215b8eae15c7e4bcb473074d3c9 Fix channel send blocking when consumer exits early.
+2365b275d5d69bce903c0a577264bb913ee4ebda Use buffered channel to decouple producer and consumer.
+2aabed83aba8b963e5da2f27b5b3be75a50fa0db Add timeout to channel receive in coordinator loop.
+6f4d7033b7ec56599d54fadcc794056a102c9e1a Fix incorrect checksum algorithm in packet validator.
+8c282065e8996086d821bdb6f20a98041fb4e63b Add protocol version check on session establishment.
+f285d38606bdfa121debdf4bce22704c2ee0afa7 Handle unknown opcode gracefully in command dispatcher.
+20f2516303ef8b1cb6381f657d4e2383c56866f7 Fix byte order mismatch in 32-bit field serialization.
+a460bed53606b2b7d94a9b6e5c39160441386f69 Add length-prefixed framing to avoid message boundary ambiguity.
+0ae992d9e59bd1fb80f868d03ea09dcc06da4c5a Fix parser not handling zero-length payload correctly.
+7cc7fb62679254d220d2976c4adb75a2cd6cc57c Add message sequence number for duplicate detection.
+55847d3ccb92c68f227ff9ca58a868052484ad5e Handle fragmented packets across multiple read calls.
+9bbdf06cc63cbf2c85cdbe160bb4173a573d7c8a Fix padding bytes not zeroed before checksum computation.
+e983ad6eb2f6c71defa570c91ea5fa15b13c5fcc Add protocol downgrade prevention in handshake logic.
+f80efaa1eef0a5cb4bbba00ec50f759c6b93d641 Add metrics endpoint exposing internal queue depths.
+abe2e2aa4952d263968e39db8315165ac1146afe Fix counter not resetting correctly after metrics flush.
+cb01c56aeaf86ccfb02494e3faebb8b86c6475bd Add histogram for request latency distribution.
+e98d852bf0931e9a2127a44e30f3a9be0ec0dff9 Fix label cardinality explosion in per-user metric.
+ceb621d5ef2e3ac64f3800e569f8a261bdbfdbc5 Add health check that verifies downstream connectivity.
+32515b5025bfd89e2d668675a9dd6ec36b23e223 Export build version string in metrics response.
+18846a49f9bfec1db0bc503f4c38fb2a91a9012e Fix gauge value going negative on concurrent decrement.

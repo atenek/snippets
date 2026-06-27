@@ -1,0 +1,107 @@
+279b0ccd3eff45c04e947deadc0419cb228138f5 Fix memory leak in buffer allocation routine.
+09e3ce8fe5b8d54b99fc7c40245295b4612d24b3 Reduce peak memory usage in stream handler.
+c16a559240efc2ca62598b668a04643cebd069b3 Add bounds check before buffer write operation.
+a4cde618d9527ebd5d0f0587230ffcf297b0b15f Release allocated memory on early exit path.
+7c31421c28e34faacb1dcca375126e123ff2017e Replace static buffer with dynamic heap allocation.
+e25d1f9472f85f32073c1e28dec1a1eb46fe3dfc Fix off-by-one error in ring buffer index.
+786dfde438565e5451d0fb7f0ae4315ea3bee0a2 Increase default buffer size to reduce reallocations.
+7558d686ffe0560dba9f0f0a86de71bb3779b1bc Add null check after malloc call in reader loop.
+107ec368d1c53ebc460f6598db8eb754cf8f2bc7 Zero-initialize output buffer before use.
+19e49fa0d834229cb65884bd238b8bd6330aa0be Fix double-free bug in cleanup function.
+ceea55b141ed5bfb4d8346c0f5e0bab13a3a7e88 Add retry logic for failed HTTP connections.
+bb75eb2b70eb1c71b69a4b4aa5b1e2219530b2d6 Set read timeout for HTTP response parsing.
+e494719c90297c32d486c1ccfe85a8730da333f2 Handle HTTP 429 status with exponential backoff.
+572c057444f4a23edf853e09f11f4debebb5abee Fix header parsing for multiline HTTP fields.
+190249f8da629a18258e8bb197a50008f82d8b39 Add support for HTTP chunked transfer encoding.
+b009edbaf00d25658dcdc50cfdf0a6d25e4ef20c Validate Content-Length before reading body.
+d9e9fbab7271979a8a7323670979e76b186dae52 Fix connection leak on HTTP redirect.
+5cb880c0cc87dfab190c68f98e75e5205751d655 Add User-Agent header to outgoing requests.
+30982662f3ceca5ba4f42d5b475aa4f8bd3c4b5b Handle HTTP 503 response in client wrapper.
+3fec94cf9c09ea3d4653c7cee8f6d6963daa2ba2 Fix URL encoding for query string parameters.
+a51bee22fd195c80bddafb4cb691ffb06589600f Set SO_REUSEADDR option on listening socket.
+beff018ab9625f8aa9f8388e866bf4c8bc4794ed Handle EINTR correctly in recv loop.
+c5d19a10ed91d350d6008cd933d9464dd6efb6cc Add socket read timeout to prevent indefinite block.
+a544af04b444719a4f02310a205e077c3e2c15e6 Fix file descriptor leak on failed connect.
+2bef7fc5d2c24836a934e2e993e3dee45384e777 Switch socket to non-blocking mode before select.
+fd364cc63d77a15681a5e6ce3d6f135f0e433138 Handle partial send in socket write function.
+6d2409d657d116dccbd62384dc6a71307b19f7b0 Close idle connections after timeout period.
+18110c95690494150bea7fb4012ef9ad8f3da722 Fix bind error handling for port already in use.
+39dce9b543a945ec192a0578d16ede939e4b3a30 Add TCP_NODELAY option for low-latency connections.
+b1f1e412e370fa39a18f1465948a687ee253f6b2 Drain socket buffer before closing connection.
+1df68c2631ed23af1cfcac43b1576c2c840adaed Flush write buffer before closing file descriptor.
+19e68845318d245504966f31f701171dbc6fafa0 Handle EAGAIN in non-blocking read loop.
+834cd1c82317b4e2e419db633aff0fcdc248a9a1 Add retry on partial read from pipe.
+ab81c04abc17eded2fc4c93895917e03b4722ec5 Fix file descriptor leak on open failure.
+f928a1191f8f92f7fba6b1b0a5564915a66d19b2 Use O_CLOEXEC flag when opening files in threads.
+b8ce5060af81c514d0b2272129416bc1d2f95621 Batch small writes to reduce syscall overhead.
+48404e5088a5c3bd5d33ea592e236e129736c74a Handle EOF correctly in line reader loop.
+a4e42e2edc56cfeb40372fc3f07c62bcac9426fa Add fsync call before renaming temp file.
+fa08cbd23ab6c1c00165a4b15f5ee15631262a40 Fix error handling for truncated file reads.
+784c55a6a7a879601688747008476a6247ad43cc Use mmap for large sequential file reads.
+4569e7c8e901c7661ae6e363e192547d9db87262 Fix race condition in shared queue access.
+352f39d51c6ad441e71fd7a06a11d2368600973c Add mutex lock around stats counter update.
+3a3aeb502a65eb80f47a1f825cec415dcd5f570f Use condition variable instead of busy wait.
+6ef908a69e6a0beb5efc49722328625774d4a8fd Join worker threads before freeing shared state.
+f846571378490e6e10ca49266aec66ffbb579f90 Fix deadlock in lock acquisition order.
+d68700e37b1b6bfe08129f49572bc68dd7d28d6f Limit thread pool size based on CPU count.
+2db24bd92152c78ef4fa5cb359daadf0b283ea74 Add thread-local storage for error context.
+529ab93a5559b9815edfbfbbaaa579fd529d3e01 Fix missing unlock on error path in handler.
+8f48f98095370fb61661edce095aa31be0dcecef Use atomic compare-and-swap for reference count.
+aadf2c3c5a063286db06e045132947007de99ba8 Reduce lock contention in hot path.
+2b4135147366e2d2ddd1b37edcef65fcb9a95b62 Handle SIGCHLD to avoid zombie processes.
+f53cbd88a4a96045bb83201bda850d15245eb8b5 Add pipe close-on-exec for child processes.
+d8b28360193b13a84fea6867dae0cc0b629ee493 Fix signal handler to use only async-safe calls.
+715bbf3ce9213480ce4d4aad20be4cb9cc14d07b Reap child processes after task completion.
+8c3ff5f93c8603869a0a709cd2b976421acb7fa4 Use socketpair for bidirectional IPC channel.
+102d6c4cc458cb008a9a460d9545e54d580cbce0 Add process group handling for clean shutdown.
+0b48bd2677c9ccee8c5ead532f2c49ede335bcbe Fix shared memory segment size calculation.
+4b87a67a100293619a099d94889dd1e4e594d8c9 Handle SIGPIPE gracefully in write path.
+e701e38008547302c6647a210decf898bfe8c71e Use semaphore to synchronize worker startup.
+46194f1aa8c0c0427fdbd29107c56ff6f2232e38 Clean up named pipe on process exit.
+ef60b174eca6a814f1d6f55a54e3e1e84547abad Remove stale connection from pool on error.
+16d9918e9aa0259303f12cc5b01c445eab30b2f4 Add backpressure mechanism to input queue.
+ddbf707882c76cedb40a5ce92f79675cfbc894af Fix frame boundary detection in stream parser.
+b2ebe271cc0660188019246a3c358c41fd4d4385 Handle partial writes in async I/O handler.
+0ef4856b6066d5e8b8ace9ace8a53e776a6f6a5c Add keepalive probes for long-lived connections.
+4660aa60a11c66d21f080c33670c2571e6ff837a Fix select timeout calculation for sub-second values.
+af1bc763c56adbe43d74e3fdab5f88b0ad8d0b7a Handle process restart on unexpected exit.
+d06ea346615bd380719d5fd567422af15d4d62a1 Improve error reporting in socket accept loop.
+8227e14ff7b5914968d8686f5850bfe8a9df91cd Add watermark threshold to flow control logic.
+857ae9432ca3a2a54076d93877ecb2f405249c82 Fix iterator invalidation in connection list.
+00d32a9d764d62a98eba34f65604829ccb577f17 Reduce syscall overhead in poll loop.
+063a6a1214a312a8e705830d90b86ef675889d09 Add graceful shutdown sequence for worker pool.
+a9bbd01c053b1bc1eb76f2dc3164416376057011 Fix read-after-close bug in async handler.
+2243bf0c09e0dadf90d047d476a312c14a768513 Limit pending connection backlog to prevent overload.
+62ec9b7b67a7045af6d963cb145cbed292aa7802 Use epoll edge-triggered mode for event handling.
+a6ea0632778b5b58ea89769067de50673c325e64 Fix incorrect byte order in packet header field.
+9a5f6e642b1ab15840fd22b1cc01895fd490390c Add logging for dropped messages in queue.
+06e714f72aecaae4fcc5645b40250880f81f661b Handle broken pipe error in write loop.
+ae04f15cfe2f4e38e937b9fd6794831673994d79 Fix timeout not resetting on partial data receipt.
+91f6150bf931ccac80930105ebabae1d9451b74d Add send queue drain step during connection teardown.
+4e2c572e3d509fd4d89c94909190bb6d2e6aa0c8 Fix missing newline in log output from child process.
+51333accef6f4896b3f9b66bb4a5381480492c89 Handle malformed request line in HTTP parser.
+9579ca1aa487a706fcd381d6b2e078dc8b65a737 Add connection pool warm-up on service start.
+9f04a1207c1e104279781a13fade6b12bd8ecf16 Fix select set rebuild after file descriptor close.
+9b5f4a133751e45b0cea739c7475bc4dd8606267 Use writev to combine header and body in one call.
+7b156370109fbf5cfeddb904c3ea6f0797253028 Add idle thread cleanup to reduce memory footprint.
+08ce139d5dd6ecdc111bfb68f699a6bba328fd53 Fix write stall when send buffer is full.
+cf493fde3027055f3b37300176acb65e942b475f Handle getaddrinfo timeout in resolver thread.
+d74c569631d280c6e8f0e3cf19817eba86e3d11c Add message framing to raw socket protocol.
+f9f40b4d6266bc54618be7d817e6d79e3b8c9564 Fix incorrect queue depth reported in status output.
+4f5fbb373f3416d85ad3415433528fef111f5a62 Add drain timeout to async write queue.
+d28cb945dadca5388645a49f178dde20ba891dc4 Fix premature socket close during handshake.
+bcb88e2059e8aea3b42cad8c2f9cc630bd57cd9d Handle ECONNRESET in persistent connection loop.
+8f07c61204c86584860488d23ca9fdd8624f4c53 Add per-thread memory arena to reduce contention.
+5ec48a45d5444025bdac85f1fd59d1253fc4cdf2 Fix buffer underflow in stream reader path.
+39d6970ef4ff6c01e0f305c4c72cda8c998c79de Handle SIGTERM cleanly during active request processing.
+6f5f4c3669054861e7dd84181168a744abcd4789 Add flow control to prevent producer from overrunning consumer.
+abf44258be7ea9629c9a75d70346294f7f16502a Fix incorrect read position after seek operation.
+d38c14700ce4478e508f0f9e2d7fb69cb6e88a51 Add health check endpoint to HTTP listener.
+dfd7e6b8a16e38531c04bf79542325d389cf21ba Handle accept queue overflow with connection drop and log.
+95ebf742f1dff18c00464bbef32e58b2e3137c7d Sanitize input path before passing to file open call.
+4cc69343b752bf39001e7dc955d7e1e6ae4d279c Add length check before copying string into fixed buffer.
+de6828c655145c5a62551104b3c2aeda7f4170f6 Fix integer overflow in packet length field calculation.
+5a1d6e75685b85e468486b12040f6220b6a84ec0 Reject request if Content-Type header is missing.
+403c2238d1d5e29754637ba530ee2ecb38a736e7 Add rate limiting for incoming connection attempts.
+0ef4ddbee8de5ae0eeab8d17028fcee5fca67c36 Validate certificate chain before accepting TLS session.
+0761b781533fdc281f3b0d7a0fc8bc7ebe71d5f3 Fix use-after-free in session cleanup routine.
