@@ -1,5 +1,6 @@
 {
   "endpoint1": "http://127.0.0.1:8731/metrics",
   "endpoint2": "http://127.0.0.1:8731/metrics",
+  "white_list": [".*_001"],
   "black_list": []
 }
