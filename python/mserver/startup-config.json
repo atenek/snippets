@@ -1,4 +1,7 @@
 {
-  "tcp:40000": {"mode": "https", "ruleset": "rules_200_ok",
-                "hosts": [{"sni": "*", "crt": "test.crt", "key": "test.key"}]}
+  "tcp:40000": {
+    "mode": "https",
+    "ruleset": "rules_200_ok",
+    "hosts": [{ "sni": "*", "crt": "smart-server-chain.crt", "key": "smart-server.key" }]
+  }
 }

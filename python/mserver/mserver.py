@@ -16,6 +16,7 @@ import os
 import glob
 import logging
 import ssl
+import struct
 from abc import ABC
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, List
@@ -209,12 +210,18 @@ def _resolve_cert_path(path: str, certs_dir: str) -> str:
     return os.path.join(certs_dir, path)
 
 
-def _tls_material(config: Optional['ServiceConfig']):
-    """Упорядоченный TLS-материал (sni, crt, key) для сравнения при hot-swap.
-    None для http (hosts отсутствует) — такие конфиги равны между собой."""
-    if config is None or config.hosts is None:
-        return None
-    return [(h.get('sni'), h.get('crt'), h.get('key')) for h in config.hosts]
+def _build_tls_contexts(tls_hosts: List['TlsHost']) -> Dict[str, ssl.SSLContext]:
+    """Строит SSLContext с загруженным сертификатом для каждой записи hosts.
+    Вызывается и при первом запуске (_run), и при hot-swap (HTTPService.hot_swap);
+    может кинуть ssl.SSLError/OSError на нечитаемой/несовместимой паре crt/key —
+    вызывающий обязан вызвать это ДО мутации состояния живого сервиса."""
+    contexts: Dict[str, ssl.SSLContext] = {}
+    for h in tls_hosts:
+        hctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        hctx.load_cert_chain(certfile=h.crt_path, keyfile=h.key_path)
+        hctx.mserver_sni = h.sni
+        contexts[h.sni] = hctx
+    return contexts
 
 
 def _select_tls_host(server_name: Optional[str], hosts: List['TlsHost']) -> 'TlsHost':
@@ -223,6 +230,28 @@ def _select_tls_host(server_name: Optional[str], hosts: List['TlsHost']) -> 'Tls
         if h.sni == '*' or h.sni == server_name:
             return h
     return hosts[-1]
+
+
+def _resolve_tls_hosts(hosts: List[dict], certs_dir: str,
+                       registry: RulesetRegistry) -> List['TlsHost']:
+    """Строит TlsHost из сырых записей config.hosts (пути crt/key — от certs_dir,
+    per-host ruleset — по имени из registry). Если ruleset указан, но не найден —
+    бросает RuntimeError (не трактует молча как «нет override») — тот же класс
+    бага, что уже был найден для ruleset порта, только для hosts[].ruleset."""
+    result = []
+    for h in hosts:
+        host_ruleset = None
+        if h.get('ruleset'):
+            host_ruleset = registry.get(h['ruleset'])
+            if host_ruleset is None:
+                raise RuntimeError(f"host ruleset '{h['ruleset']}' (sni={h.get('sni')}) not found")
+        result.append(TlsHost(
+            sni=h['sni'],
+            crt_path=_resolve_cert_path(h['crt'], certs_dir),
+            key_path=_resolve_cert_path(h['key'], certs_dir),
+            ruleset=host_ruleset,
+        ))
+    return result
 
 
 # Upper bound for the "?delay=" query parameter, in milliseconds.
@@ -301,12 +330,91 @@ class BandwidthLimiter:
 _bandwidth_limiter = BandwidthLimiter()
 
 
+# ── RST fault injection ───────────────────────────────────────────────────────
+#
+# Каждую RST_EVERY_N-ю https-сессию закрываем «дефектно»: клиент штатно получает
+# ответ, после чего сокет аварийно сбрасывается. Воспроизводит паттерн из дампа
+# tcp_stream7: сервер отдаёт ответ → FIN (активное закрытие) → RST на
+# запоздавший close_notify клиента.
+#
+# Механизм: на выбранной сессии в finish() (после flush ответа) взводим
+# SO_LINGER{onoff=1, linger=0} и сами закрываем сокет — abortive close, при
+# котором ядро шлёт RST вместо FIN. TLS-close (unwrap/close_notify) не делаем.
+# Так RST формируется ядром, как в реальном дефекте tcp_stream7.
+#
+# RST_EVERY_N <= 0 (по умолчанию) полностью отключает инъекцию.
+RST_EVERY_N = int(os.environ.get('MSERVER_RST_EVERY_N', '0'))
+# Пауза между flush ответа и abortive-close: клиент успевает прочитать ответ
+# до RST. Достаточно единиц миллисекунд на loopback; 50 мс — с запасом.
+RST_DELIVERY_GRACE = 0.05
+_rst_session_counter = 0
+_rst_counter_lock = threading.Lock()
+
+
+def _should_inject_rst() -> bool:
+    """True для каждой RST_EVERY_N-й https-сессии (потокобезопасный счётчик)."""
+    if RST_EVERY_N <= 0:
+        return False
+    global _rst_session_counter
+    with _rst_counter_lock:
+        _rst_session_counter += 1
+        return _rst_session_counter % RST_EVERY_N == 0
+
+
 # ── HTTPService ───────────────────────────────────────────────────────────────
 
 def _make_http_handler_class():
     class RulesetHTTPHandler(http.server.BaseHTTPRequestHandler):
         def log_message(self, format, *args):
             log.debug(f"[HTTP:{self.server.server_address[1]}] {format % args}")
+
+        def setup(self):
+            # Решение принимаем один раз на TCP-сессию (setup вызывается на
+            # соединение, а не на запрос). Считаем только https-сессии.
+            super().setup()
+            self._inject_rst = False
+            if isinstance(self.connection, ssl.SSLSocket) and _should_inject_rst():
+                self._inject_rst = True
+                log.debug(f"[HTTP:{self.server.server_address[1]}] RST-inject armed "
+                          f"for {self.client_address[0]}:{self.client_address[1]}")
+
+        def finish(self):
+            # Сначала штатно сбрасываем буфер ответа (flush wfile) — клиент
+            # гарантированно получает ответ ДО аварийного закрытия.
+            try:
+                super().finish()
+            finally:
+                if getattr(self, '_inject_rst', False):
+                    self._arm_rst_close()
+                    log.info(f"[https:{self.server.server_address[1]}] session "
+                             f"{self.client_address[0]}:{self.client_address[1]} "
+                             f"closed with RST")
+
+        def _arm_rst_close(self):
+            """Аварийно закрыть соединение — послать RST вместо FIN.
+
+            SO_LINGER{onoff=1, linger=0} превращает close() в abortive release:
+            ядро отбрасывает содержимое send-буфера и шлёт клиенту RST. TLS-close
+            (unwrap/close_notify) намеренно не делаем. Воспроизводится дефект
+            tcp_stream7: клиент видит ответ 200, затем обрыв соединения.
+
+            Закрываем здесь, а не полагаемся на socketserver.shutdown_request:
+            штатный путь сначала делает shutdown(SHUT_WR) → FIN, что нейтрализует
+            linger (после FIN close() уже не пошлёт RST). Наш close() с linger=0
+            отрабатывает первым; повторный close() из shutdown_request идемпотентен.
+
+            Короткая пауза перед close() даёт клиенту вытянуть ответ из своего
+            приёмного буфера ДО прихода RST (иначе abortive-close на loopback
+            обгоняет доставку и клиент теряет ответ). Задержка заодно моделирует
+            «запоздалость» close_notify из реального дампа."""
+            try:
+                self.connection.setsockopt(
+                    socket.SOL_SOCKET, socket.SO_LINGER,
+                    struct.pack('ii', 1, 0))
+                time.sleep(RST_DELIVERY_GRACE)
+                self.connection.close()
+            except OSError as e:
+                log.debug(f"RST-close failed: {e}")
 
         def _handle(self):
             content_length = int(self.headers.get('Content-Length', 0))
@@ -536,6 +644,7 @@ class HTTPService(PortService):
         self.host_rulesets: Dict[str, Ruleset] = {
             h.sni: h.ruleset for h in (tls_hosts or []) if h.ruleset is not None
         }
+        self.contexts: Dict[str, ssl.SSLContext] = {}
         self._server: Optional[ThreadedTCPServer] = None
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
@@ -548,21 +657,39 @@ class HTTPService(PortService):
         self._thread.start()
         time.sleep(0.1)
 
-    def set_rulesets(self, ruleset: Ruleset,
-                     host_rulesets: Optional[Dict[str, Ruleset]] = None):
-        """Горячая подмена ruleset-ов (порта и per-host) без пересоздания сокета.
+    def hot_swap(self, ruleset: Ruleset, tls_hosts: Optional[List['TlsHost']] = None):
+        """Горячая подмена ruleset(-ов) и, для https, TLS hosts/сертификатов —
+        без пересоздания слушающего сокета.
 
-        Присваивание ссылок атомарно под GIL; обработчик читает
-        self.server.ruleset / self.server.host_rulesets на каждый запрос,
-        поэтому новые правила вступают в силу со следующего запроса, а уже
+        Если tls_hosts не None, новые SSLContext строятся ДО мутации состояния
+        (self.contexts/self.tls_hosts не трогаются, пока load_cert_chain не
+        отработает успешно) — упавшая загрузка сертификата не оставляет сервис
+        в частично применённом виде. Присваивание ссылок атомарно под GIL;
+        _sni_callback и обработчик читают self.contexts/self.tls_hosts/
+        self.ruleset/self.host_rulesets на каждый handshake/запрос, поэтому
+        новые значения вступают в силу со следующего запроса/соединения, а уже
         открытые соединения и сам слушающий сокет не затрагиваются.
         """
+        new_contexts = _build_tls_contexts(tls_hosts) if tls_hosts is not None else None
+
         self.ruleset = ruleset
-        self.host_rulesets = host_rulesets or {}
+        if tls_hosts is not None:
+            self.tls_hosts = tls_hosts
+            self.contexts = new_contexts
+            self.host_rulesets = {h.sni: h.ruleset for h in tls_hosts if h.ruleset is not None}
+        else:
+            self.host_rulesets = {}
         if self._server is not None:
             self._server.ruleset = ruleset
             self._server.host_rulesets = self.host_rulesets
-        log.info(f"HTTPService port {self.port}: ruleset hot-swapped -> {ruleset.name}")
+
+        msg = f"HTTPService port {self.port}: hot-swapped ruleset -> {ruleset.name}"
+        if tls_hosts is not None:
+            msg += f", tls hosts -> {[h.sni for h in tls_hosts]}"
+        log.info(msg)
+
+    def _sni_callback(self, sslsocket, server_name, _default_ctx):
+        sslsocket.context = self.contexts[_select_tls_host(server_name, self.tls_hosts).sni]
 
     def _run(self):
         try:
@@ -573,22 +700,13 @@ class HTTPService(PortService):
             if self.tls_hosts:
                 # Один SSLContext на запись hosts; слушающий сокет оборачиваем
                 # контекстом ПОСЛЕДНЕЙ записи (default), на него вешаем
-                # sni_callback, который на хендшейке подменяет контекст
-                # соединения на совпавший по SNI. Контекст помечаем mserver_sni —
+                # sni_callback (bound method, читает self.contexts/self.tls_hosts
+                # на момент вызова — это и позволяет hot_swap() менять сертификаты
+                # без пересоздания сокета). Контекст помечаем mserver_sni —
                 # обработчик по нему выбирает per-host ruleset.
-                contexts: Dict[str, ssl.SSLContext] = {}
-                for h in self.tls_hosts:
-                    hctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-                    hctx.load_cert_chain(certfile=h.crt_path, keyfile=h.key_path)
-                    hctx.mserver_sni = h.sni
-                    contexts[h.sni] = hctx
-                hosts = self.tls_hosts
-
-                def _sni_callback(sslsocket, server_name, _default_ctx):
-                    sslsocket.context = contexts[_select_tls_host(server_name, hosts).sni]
-
-                default_ctx = contexts[hosts[-1].sni]
-                default_ctx.sni_callback = _sni_callback
+                self.contexts = _build_tls_contexts(self.tls_hosts)
+                default_ctx = self.contexts[self.tls_hosts[-1].sni]
+                default_ctx.sni_callback = self._sni_callback
                 self._server.socket = default_ctx.wrap_socket(self._server.socket,
                                                               server_side=True)
             scheme = 'https' if self.tls_hosts else 'http'
@@ -866,22 +984,20 @@ class ManagedPort:
 
     def assign(self, config: ServiceConfig, registry: RulesetRegistry):
         with self.lock:
-            # Мягкое изменение: если порт уже работает в режиме http и режим
-            # не меняется — только подменяем ruleset, не трогая сокет.
-            # /data и прочий трафик не прерывается; новое правило (напр. /health)
-            # действует со следующего запроса.
+            # Мягкое изменение: тот же mode, порт уже слушает — горячая подмена
+            # ruleset(-ов) и, для https, TLS hosts/сертификатов, без пересоздания
+            # сокета. Пересоздание нужно только при смене mode (см. dev_task_003).
             if (config.mode in ('http', 'https')
                     and isinstance(self.service, HTTPService)
                     and self.service.is_running()
                     and self.config is not None
-                    and self.config.mode == config.mode
-                    and _tls_material(self.config) == _tls_material(config)):
+                    and self.config.mode == config.mode):
                 port_ruleset = registry.get(config.ruleset)
-                host_rulesets = {
-                    h['sni']: registry.get(h['ruleset'])
-                    for h in (config.hosts or []) if h.get('ruleset')
-                }
-                self.service.set_rulesets(port_ruleset, host_rulesets)
+                if port_ruleset is None:
+                    raise RuntimeError(f"port {self.port}: ruleset '{config.ruleset}' not found")
+                tls_hosts = (_resolve_tls_hosts(config.hosts, self.certs_dir, registry)
+                            if config.mode == 'https' else None)
+                self.service.hot_swap(port_ruleset, tls_hosts)
                 self.config = config
                 return
 
@@ -895,18 +1011,14 @@ class ManagedPort:
 
             if config.mode == 'http':
                 ruleset = registry.get(config.ruleset)
+                if ruleset is None:
+                    raise RuntimeError(f"port {self.port}: ruleset '{config.ruleset}' not found")
                 self.service = HTTPService(self.port, self.ip, ruleset)
             elif config.mode == 'https':
                 ruleset = registry.get(config.ruleset)
-                tls_hosts = [
-                    TlsHost(
-                        sni=h['sni'],
-                        crt_path=_resolve_cert_path(h['crt'], self.certs_dir),
-                        key_path=_resolve_cert_path(h['key'], self.certs_dir),
-                        ruleset=(registry.get(h['ruleset']) if h.get('ruleset') else None),
-                    )
-                    for h in config.hosts
-                ]
+                if ruleset is None:
+                    raise RuntimeError(f"port {self.port}: ruleset '{config.ruleset}' not found")
+                tls_hosts = _resolve_tls_hosts(config.hosts, self.certs_dir, registry)
                 self.service = HTTPService(self.port, self.ip, ruleset,
                                            tls_hosts=tls_hosts)
             elif config.mode == 'tcp_echo':
@@ -963,6 +1075,155 @@ VALID_SERVICE_MODES: Dict[str, set] = {
     'tcp': {'http', 'https', 'tcp_echo', 'tcp_logger'},
     'udp': {'udp_echo', 'udp_logger'},
 }
+
+
+# ── Общая валидация/применение конфигурации сервисов ───────────────────────────
+# Используется и POST /mgmt, и загрузкой startup-config (POST /config/load и
+# старт сервера) — единая схема словаря {"tcp:PORT": {...}|null, ...}.
+
+class ConfigValidationError(Exception):
+    """Словарь целиком не прошёл валидацию. errors: {service_key: {"error":.., "details":..}}."""
+    def __init__(self, errors: Dict[str, dict]):
+        super().__init__("service configuration validation failed")
+        self.errors = errors
+
+
+def _validate_services_config(data: Any, runner: 'ServerRunner') -> Dict[str, 'ServiceConfig']:
+    """Валидирует весь словарь целиком, собирая ВСЕ ошибки (не только первую).
+    При любой ошибке — ConfigValidationError, ничего не возвращается частично.
+    Ключи с префиксом "_" (например "_comment") пропускаются молча.
+    Возвращает {service_key: ServiceConfig} только для валидных записей."""
+    if not isinstance(data, dict):
+        raise ConfigValidationError({
+            "_": {"error": "Request body must be a JSON object", "details": ""}
+        })
+
+    errors: Dict[str, dict] = {}
+    configs: Dict[str, ServiceConfig] = {}
+
+    for key, entry in data.items():
+        if key.startswith('_'):
+            continue
+
+        parts = key.split(':')
+        if len(parts) != 2 or parts[0] not in ('tcp', 'udp') or not parts[1].isdigit():
+            errors[key] = {"error": "Invalid service format",
+                           "details": "Expected tcp:NNNNN or udp:NNNNN"}
+            continue
+        proto, port_str = parts[0], parts[1]
+        port = int(port_str)
+
+        if port == runner.mgmt_port:
+            errors[key] = {"error": "Cannot configure management port", "details": ""}
+            continue
+
+        if entry is None:
+            configs[key] = ServiceConfig(protocol=proto, port=port, mode=None)
+            continue
+        if not isinstance(entry, dict):
+            errors[key] = {"error": "Service config must be an object or null", "details": ""}
+            continue
+
+        mode = entry.get('mode')
+        if mode is not None:
+            allowed = VALID_SERVICE_MODES.get(proto, set())
+            if mode not in allowed:
+                errors[key] = {"error": "Invalid mode for protocol",
+                               "details": f"Mode '{mode}' not valid for {proto}"}
+                continue
+
+            if mode in ('http', 'https'):
+                ruleset_name = entry.get('ruleset')
+                if not ruleset_name:
+                    errors[key] = {"error": f"Ruleset required for {mode} mode", "details": ""}
+                    continue
+                if runner.registry.get(ruleset_name) is None:
+                    errors[key] = {"error": "Ruleset not found",
+                                   "details": f"Ruleset '{ruleset_name}' is not loaded"}
+                    continue
+
+            if mode == 'https':
+                hosts = entry.get('hosts')
+                if not isinstance(hosts, list) or not hosts:
+                    errors[key] = {"error": "hosts (non-empty list) required for https mode",
+                                   "details": ""}
+                    continue
+                host_error = False
+                for h in hosts:
+                    if not isinstance(h, dict):
+                        errors[key] = {"error": "hosts entry must be an object", "details": ""}
+                        host_error = True
+                        break
+                    sni = h.get('sni')
+                    crt = h.get('crt')
+                    key_path_raw = h.get('key')
+                    if not sni or not isinstance(sni, str):
+                        errors[key] = {"error": "sni required in hosts entry", "details": ""}
+                        host_error = True
+                        break
+                    if not crt or not key_path_raw:
+                        errors[key] = {"error": "crt and key required in hosts entry",
+                                       "details": f"sni={sni}"}
+                        host_error = True
+                        break
+                    crt_path = _resolve_cert_path(crt, runner.certs_dir)
+                    key_path = _resolve_cert_path(key_path_raw, runner.certs_dir)
+                    if not os.path.isfile(crt_path):
+                        errors[key] = {"error": "Certificate file not found", "details": crt_path}
+                        host_error = True
+                        break
+                    if not os.path.isfile(key_path):
+                        errors[key] = {"error": "Key file not found", "details": key_path}
+                        host_error = True
+                        break
+                    host_ruleset = h.get('ruleset')
+                    if host_ruleset is not None and runner.registry.get(host_ruleset) is None:
+                        errors[key] = {"error": "Ruleset not found",
+                                       "details": f"Ruleset '{host_ruleset}' is not loaded"}
+                        host_error = True
+                        break
+                    try:
+                        ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER).load_cert_chain(
+                            certfile=crt_path, keyfile=key_path)
+                    except ssl.SSLError as e:
+                        errors[key] = {"error": "Invalid certificate/key pair",
+                                       "details": f"sni={sni}: {e}"}
+                        host_error = True
+                        break
+                if host_error:
+                    continue
+
+        configs[key] = ServiceConfig(protocol=proto, port=port, mode=mode,
+                                     ruleset=entry.get('ruleset'), hosts=entry.get('hosts'))
+
+    if errors:
+        raise ConfigValidationError(errors)
+    return configs
+
+
+def _apply_services_config(configs: Dict[str, 'ServiceConfig'],
+                           runner: 'ServerRunner') -> Dict[str, dict]:
+    """Применяет уже провалидированные конфиги через runner.assign_service.
+    Ошибки на этапе применения (напр. порт занят) — не фатальны для всего
+    набора, попадают в results[key] как {"status": "error", ...}."""
+    results: Dict[str, dict] = {}
+    for service_key, config in configs.items():
+        try:
+            runner.assign_service(service_key, config)
+            mp = runner.managed_ports[service_key]
+            if config.mode is None:
+                results[service_key] = {"status": "stopped"}
+            else:
+                entry: dict = {"status": "applied", "mode": config.mode}
+                if config.mode in ('http', 'https'):
+                    entry["ruleset"] = config.ruleset
+                log_file = mp.service.get_log_file() if mp.service else None
+                if log_file:
+                    entry["log_file"] = log_file
+                results[service_key] = entry
+        except Exception as e:
+            results[service_key] = {"status": "error", "error": str(e)}
+    return results
 
 
 # ── HTTP Management Handler ───────────────────────────────────────────────────
@@ -1044,151 +1305,21 @@ class CustomHandler(http.server.BaseHTTPRequestHandler):
             return
 
         try:
-            requests = json.loads(body.decode('utf-8'))
+            data = json.loads(body.decode('utf-8'))
         except json.JSONDecodeError:
-            self._send_validation_error("Invalid JSON in request body", [])
+            self._send_validation_error("Invalid JSON in request body", {})
             return
 
-        errors = self._validate_mgmt_requests(requests, runner)
-        if errors:
-            self._send_validation_error("Validation failed", errors)
+        try:
+            configs = _validate_services_config(data, runner)
+        except ConfigValidationError as e:
+            self._send_validation_error("Validation failed", e.errors)
             return
 
-        results = []
-        for req in requests:
-            service_key = req['service']
-            mode = req.get('mode')
-            proto, port_str = service_key.split(':')
-            port = int(port_str)
-            config = ServiceConfig(
-                protocol=proto, port=port, mode=mode, ruleset=req.get('ruleset'),
-                hosts=req.get('hosts')
-            )
-            try:
-                runner.assign_service(service_key, config)
-                mp = runner.managed_ports[service_key]
-
-                if mode is None:
-                    results.append({"service": service_key, "status": "stopped"})
-                else:
-                    entry: dict = {"service": service_key, "status": "applied", "mode": mode}
-                    if mode in ('http', 'https'):
-                        entry["ruleset"] = req.get('ruleset')
-                    log_file = mp.service.get_log_file() if mp.service else None
-                    if log_file:
-                        entry["log_file"] = log_file
-                    results.append(entry)
-            except Exception as e:
-                results.append({"service": service_key, "status": "error", "error": str(e)})
-
+        results = _apply_services_config(configs, runner)
         self.send_json_response({"status": "success", "results": results})
 
-    def _validate_mgmt_requests(self, requests, runner) -> list:
-        errors = []
-        if not isinstance(requests, list):
-            errors.append({"service": None, "error": "Request body must be a JSON array", "details": ""})
-            return errors
-
-        seen: set = set()
-        for i, req in enumerate(requests):
-            if not isinstance(req, dict):
-                errors.append({"service": None, "error": f"Item {i} must be an object", "details": ""})
-                continue
-
-            service = req.get('service')
-            if not isinstance(service, str):
-                errors.append({"service": service, "error": "Service must be a string", "details": ""})
-                continue
-
-            parts = service.split(':')
-            if len(parts) != 2 or parts[0] not in ('tcp', 'udp') or not parts[1].isdigit():
-                errors.append({"service": service, "error": "Invalid service format",
-                                "details": "Expected tcp:NNNNN or udp:NNNNN"})
-                continue
-
-            proto, port_str = parts[0], parts[1]
-            port = int(port_str)
-
-            if port == MGMT_PORT:
-                errors.append({"service": service, "error": "Cannot configure management port", "details": ""})
-                continue
-
-            if service in seen:
-                errors.append({"service": service, "error": "Duplicate service", "details": ""})
-                continue
-            seen.add(service)
-
-            mode = req.get('mode')
-            if mode is not None:
-                allowed = VALID_SERVICE_MODES.get(proto, set())
-                if mode not in allowed:
-                    errors.append({"service": service, "error": "Invalid mode for protocol",
-                                   "details": f"Mode '{mode}' not valid for {proto}"})
-                    continue
-
-                if mode in ('http', 'https'):
-                    ruleset_name = req.get('ruleset')
-                    if not ruleset_name:
-                        errors.append({"service": service, "error": f"Ruleset required for {mode} mode",
-                                       "details": ""})
-                        continue
-                    if runner.registry.get(ruleset_name) is None:
-                        errors.append({"service": service, "error": "Ruleset not found",
-                                       "details": f"Ruleset '{ruleset_name}' is not loaded"})
-                        continue
-
-                if mode == 'https':
-                    hosts = req.get('hosts')
-                    if not isinstance(hosts, list) or not hosts:
-                        errors.append({"service": service,
-                                       "error": "hosts (non-empty list) required for https mode",
-                                       "details": ""})
-                        continue
-                    host_error = False
-                    for h in hosts:
-                        if not isinstance(h, dict):
-                            errors.append({"service": service, "error": "hosts entry must be an object",
-                                           "details": ""})
-                            host_error = True
-                            break
-                        sni = h.get('sni')
-                        crt = h.get('crt')
-                        key = h.get('key')
-                        if not sni or not isinstance(sni, str):
-                            errors.append({"service": service, "error": "sni required in hosts entry",
-                                           "details": ""})
-                            host_error = True
-                            break
-                        if not crt or not key:
-                            errors.append({"service": service,
-                                           "error": "crt and key required in hosts entry",
-                                           "details": f"sni={sni}"})
-                            host_error = True
-                            break
-                        crt_path = _resolve_cert_path(crt, runner.certs_dir)
-                        key_path = _resolve_cert_path(key, runner.certs_dir)
-                        if not os.path.isfile(crt_path):
-                            errors.append({"service": service, "error": "Certificate file not found",
-                                           "details": crt_path})
-                            host_error = True
-                            break
-                        if not os.path.isfile(key_path):
-                            errors.append({"service": service, "error": "Key file not found",
-                                           "details": key_path})
-                            host_error = True
-                            break
-                        host_ruleset = h.get('ruleset')
-                        if host_ruleset is not None and runner.registry.get(host_ruleset) is None:
-                            errors.append({"service": service, "error": "Ruleset not found",
-                                           "details": f"Ruleset '{host_ruleset}' is not loaded"})
-                            host_error = True
-                            break
-                    if host_error:
-                        continue
-
-        return errors
-
-    def _send_validation_error(self, message: str, errors: list):
+    def _send_validation_error(self, message: str, errors: dict):
         body = (json.dumps({"status": "error", "message": message, "errors": errors}) + "\n").encode()
         self.send_response(400)
         self.send_header('Content-Type', 'application/json')
@@ -1218,11 +1349,14 @@ class CustomHandler(http.server.BaseHTTPRequestHandler):
             self.send_error_response(503, "Server runner not available")
             return
         try:
-            runner.load_config(runner.startup_config_path)
+            results = runner.load_config(runner.startup_config_path)
             self.send_json_response({"status": "success",
-                                     "message": f"Loaded from {runner.startup_config_path}"})
+                                     "message": f"Loaded from {runner.startup_config_path}",
+                                     "results": results})
         except FileNotFoundError:
             self.send_error_response(404, "startup-config.json not found")
+        except ConfigValidationError as e:
+            self._send_validation_error("Validation failed", e.errors)
         except Exception as e:
             self.send_error_response(500, f"Failed to load: {e}")
 
@@ -1299,27 +1433,16 @@ class ServerRunner:
             json.dump(data, f, indent=2)
         log.info(f"Config saved to {path}")
 
-    def load_config(self, path: str):
+    def load_config(self, path: str) -> Dict[str, dict]:
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        for key, entry in data.items():
-            proto, port_str = key.split(':')
-            port = int(port_str)
-            if entry is None:
-                config = ServiceConfig(protocol=proto, port=port, mode=None)
-            else:
-                config = ServiceConfig(
-                    protocol=proto,
-                    port=port,
-                    mode=entry.get('mode'),
-                    ruleset=entry.get('ruleset'),
-                    hosts=entry.get('hosts')
-                )
-            try:
-                self.assign_service(key, config)
-            except Exception as e:
-                log.error(f"Failed to start service {key}: {e}")
+        configs = _validate_services_config(data, self)  # ConfigValidationError пробрасывается
+        results = _apply_services_config(configs, self)
+        for key, result in results.items():
+            if result.get('status') == 'error':
+                log.error(f"Failed to apply service {key}: {result.get('error')}")
         log.info(f"Config loaded from {path}")
+        return results
 
     def _run_mgmt_server(self):
         try:
@@ -1353,7 +1476,14 @@ class ServerRunner:
             log.warning(f"Rulesets dir '{self.rulesets_dir}' not found")
 
         if os.path.isfile(self.startup_config_path):
-            self.load_config(self.startup_config_path)
+            try:
+                self.load_config(self.startup_config_path)
+            except ConfigValidationError as e:
+                log.error(f"Startup config '{self.startup_config_path}' failed validation, "
+                         f"starting with no services configured: {e.errors}")
+            except Exception as e:
+                log.error(f"Failed to load startup config '{self.startup_config_path}', "
+                         f"starting with no services configured: {e}")
         else:
             log.info(f"No startup-config at '{self.startup_config_path}'")
 
@@ -1385,6 +1515,7 @@ def parse_args():
   python mserver.py
   python mserver.py --mgmt-port 62005
   python mserver.py --ip 127.0.0.1 --rulesets-dir ./my_rules
+  python mserver.py --rst-every-n 3   # RST каждой 3-й https-сессии
 """
     )
     parser.add_argument('--ip', type=str, default=None,
@@ -1401,6 +1532,9 @@ def parse_args():
                         help=f'Директория для лог-файлов (по умолчанию: {LOGS_DIR})')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='Подробный вывод')
+    parser.add_argument('--rst-every-n', type=int, default=RST_EVERY_N,
+                        help=f'RST-инъекция: закрывать аварийно каждую N-ю '
+                             f'https-сессию (0 — выключить; по умолчанию: {RST_EVERY_N})')
     return parser.parse_args()
 
 
@@ -1411,9 +1545,12 @@ if __name__ == '__main__':
         IP = args.ip
 
     MGMT_PORT = args.mgmt_port
+    RST_EVERY_N = args.rst_every_n
 
     log.info("MultiPortHTTPServer")
     log.info(f"  Management : http://{IP}:{MGMT_PORT}")
+    if RST_EVERY_N > 0:
+        log.info(f"  RST-inject : every {RST_EVERY_N} https session(s)")
     log.info(f"  Rulesets   : {args.rulesets_dir}")
     log.info(f"  Config     : {args.startup_config}")
     log.info(f"  Logs       : {args.logs_dir}")
