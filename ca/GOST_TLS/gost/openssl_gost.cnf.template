@@ -1,0 +1,40 @@
+# =====================================================================
+#  OpenSSL configuration with GOST support (engine-based) — ШАБЛОН
+# =====================================================================
+#  Плейсхолдер @@GOST_DIR@@ — абсолютный путь к каталогу GOST_TLS/gost.
+#  Из шаблона рендерится openssl_gost.cnf (правьте шаблон, не рендер):
+#  это делает lib/ca_lib.py (gost_env) при каждом GOST-запуске CA, поэтому
+#  dynamic_path всегда указывает внутрь текущего расположения проекта.
+#
+#  Usage (после рендера):
+#     export OPENSSL_CONF=<GOST_DIR>/openssl_gost.cnf
+#     export OPENSSL_ENGINES=<GOST_DIR>/engines-3
+#     openssl engine gost -c
+#
+#  This config includes the system default settings and additionally
+#  registers the GOST engine so that GOST algorithms (34.10-2012 sign,
+#  34.11-2012 hash, 34.12/34.13-2015 Magma/Kuznyechik, 28147-89) become
+#  available in the openssl CLI and in libssl (GOST-TLS ciphersuites).
+# =====================================================================
+
+# Pull in the distro defaults (system-wide TLS policy, providers, etc.)
+.include /usr/lib/ssl/openssl.cnf
+
+# ---- Engine registration -------------------------------------------
+openssl_conf = openssl_init
+
+[openssl_init]
+engines = engine_section
+
+[engine_section]
+gost = gost_section
+
+[gost_section]
+# Engine id
+engine_id = gost
+# Absolute path to the engine shared object (avoids relying on OPENSSL_ENGINES)
+dynamic_path = @@GOST_DIR@@/engines-3/gost.so
+# Activate the engine for all supported algorithms
+default_algorithms = ALL
+# Use CryptoPro-compatible S-box (param Z) for 28147-89 / Magma MAC
+CRYPT_PARAMS = id-tc26-gost-28147-param-Z

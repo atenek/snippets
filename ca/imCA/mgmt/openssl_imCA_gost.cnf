@@ -1,0 +1,91 @@
+# intermediate CA (ГОСТ) OpenSSL config file — профиль gost-256/gost-512
+# Плейсхолдеры @@...@@ подставляются скриптом imCA_init.py:
+#   @@CA_DIR@@       — каталог хранилища промежуточного CA (gost-дерево)
+#   @@SIGNING_KEY@@  — приватный ключ выбранного корневого CA
+#   @@SIGNING_CERT@@ — сертификат выбранного корневого CA
+#   @@CN@@           — имя сертификата (CN) из параметра --cn
+#   @@MD@@           — digest подписи из криптопрофиля (md_gost12_256 / md_gost12_512)
+# Регистрация gost-engine — через окружение OPENSSL_CONF/ENGINES/MODULES
+# (выставляет lib/ca_lib.py, см. gost_env), в самом конфиге её нет.
+
+[ ca ]
+default_ca = intermediate_CA
+
+[ intermediate_CA ]
+# Каталоги и файлы БД самого промежуточного CA (ведёт `openssl ca`).
+dir               = @@CA_DIR@@
+certs             = $dir/certs
+crl_dir           = $dir/crl
+new_certs_dir     = $dir/newcerts
+database          = $dir/index.txt
+serial            = $dir/serial
+RANDFILE          = $dir/private/.rand
+
+# Ключ и сертификат ПОДПИСЫВАЮЩЕГО (корневого) CA.
+private_key       = @@SIGNING_KEY@@
+certificate       = @@SIGNING_CERT@@
+
+# For certificate revocation lists.
+crlnumber         = $dir/crlnumber
+crl               = $dir/crl/im.crl.pem
+crl_extensions    = crl_ext
+default_crl_days  = 30
+
+default_md        = @@MD@@
+
+name_opt          = ca_default
+cert_opt          = ca_default
+default_days      = 3652
+preserve          = no
+policy            = policy_strict
+
+[ policy_strict ]
+# Allow the intermediate CA to sign a more diverse range of certificates.
+# See the POLICY FORMAT section of the `ca` man page.
+countryName             = match
+stateOrProvinceName     = match
+organizationName        = match
+organizationalUnitName  = match
+commonName              = optional
+emailAddress            = optional
+
+[ req ]
+# Options for the `req` tool (`man req`).
+# prompt = no — DN берётся из конфига без интерактивного диалога openssl.
+# Поля при необходимости правятся в редакторе (vim) на шаге проверки конфига.
+prompt              = no
+distinguished_name  = req_distinguished_name
+string_mask         = utf8only
+default_md          = @@MD@@
+
+# Extension to add when the -x509 option is used.
+x509_extensions     = x509_ext_intermediate
+
+[ req_distinguished_name ]
+# See https://en.wikipedia.org/wiki/Certificate_signing_request.
+countryName            = ru
+stateOrProvinceName    = Moscow
+localityName           = Moscow
+organizationName       = LBOSSE Corporation Ltd
+organizationalUnitName = Certificate Authority Department
+commonName             = @@CN@@
+emailAddress           = ca_team@lbosse.ru
+
+[ x509_ext_intermediate ]
+# Extensions for a typical intermediate CA (`man x509v3_config`).
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints = critical, CA:true, pathlen:1
+keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+
+[ crl_ext ]
+# Extension for CRLs (`man x509v3_config`).
+authorityKeyIdentifier=keyid:always
+
+[ ocsp ]
+# Extension for OCSP signing certificates (`man ocsp`).
+basicConstraints = CA:FALSE
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+keyUsage = critical, digitalSignature
+extendedKeyUsage = critical, OCSPSigning

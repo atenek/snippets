@@ -1,0 +1,90 @@
+# root CA (ГОСТ) Certificate Authority OpenSSL config file — профиль gost-256/gost-512
+# Плейсхолдеры @@...@@ подставляются скриптом rootCA_init.py:
+#   @@CA_DIR@@ — каталог хранилища корневого CA (gost-дерево)
+#   @@CN@@     — имя сертификата (CN) из параметра --cn
+#   @@MD@@     — digest подписи из криптопрофиля (md_gost12_256 / md_gost12_512)
+# Регистрация gost-engine — через окружение OPENSSL_CONF/ENGINES/MODULES
+# (выставляет lib/ca_lib.py, см. gost_env), в самом конфиге её нет.
+
+[ ca ]
+default_ca = root_ca
+
+[ root_ca ]
+# Directory and file locations.
+dir               = @@CA_DIR@@
+certs             = $dir/certs
+crl_dir           = $dir/crl
+new_certs_dir     = $dir/newcerts
+database          = $dir/index.txt
+serial            = $dir/serial
+RANDFILE          = $dir/private/.rand
+
+# Корневой ключ и сертификат (для self-sign через `req -x509` не используются).
+private_key       = $dir/private/root_cert.key
+certificate       = $dir/certs/root_cert.crt
+
+# For certificate revocation lists.
+crlnumber         = $dir/crlnumber
+crl               = $dir/crl/root.crl.pem
+crl_extensions    = crl_ext
+default_crl_days  = 30
+
+default_md        = @@MD@@
+
+name_opt          = ca_default
+cert_opt          = ca_default
+default_days      = 7300
+preserve          = no
+policy            = policy_selfsign
+
+[ policy_selfsign ]
+# The root CA should self sign certificates that must total match.
+# See the POLICY FORMAT section of man ca.
+countryName             = match
+stateOrProvinceName     = match
+organizationName        = match
+organizationalUnitName  = match
+commonName              = match
+emailAddress            = match
+
+[ req ]
+# Options for the `req` tool (`man req`).
+# prompt = no — DN берётся из конфига без интерактивного диалога openssl.
+# Поля при необходимости правятся в редакторе (vim) на шаге проверки конфига.
+prompt              = no
+distinguished_name  = req_distinguished_name
+string_mask         = utf8only
+
+default_md          = @@MD@@
+
+# Extension to add when the -x509 option is used.
+x509_extensions     = x509_ext_root
+
+[ req_distinguished_name ]
+# See https://en.wikipedia.org/wiki/Certificate_signing_request.
+countryName            = ru
+stateOrProvinceName    = Moscow
+localityName           = Moscow
+organizationName       = LBOSSE Corporation Ltd
+organizationalUnitName = Certificate Authority Department
+commonName             = @@CN@@
+emailAddress           = ca_team@lbosse.ru
+
+[ x509_ext_root ]
+# Extensions for a typical CA (`man x509v3_config`).
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints = critical, CA:true
+keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+
+[ crl_ext ]
+# Extension for CRLs (`man x509v3_config`).
+authorityKeyIdentifier=keyid:always
+
+[ ocsp ]
+# Extension for OCSP signing certificates (`man ocsp`).
+basicConstraints = CA:FALSE
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+keyUsage = critical, digitalSignature
+extendedKeyUsage = critical, OCSPSigning
