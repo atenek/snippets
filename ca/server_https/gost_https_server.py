@@ -124,6 +124,14 @@ def main() -> None:
     # GOST-ciphersuites у engine есть только для TLS 1.2 (см. GOST_TLS/).
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+    # GOST-шифры перечислены явно: в дефолт python (сборки CPython с
+    # --with-ssl-default-suites=python) и в DEFAULT новых OpenSSL (3.2+)
+    # они не входят; @SECLEVEL=0 — у GOST-suites Au=unknown, и security
+    # level иначе отсекает их на новых OpenSSL.
+    ctx.set_ciphers(
+        "GOST2012-KUZNYECHIK-KUZNYECHIKOMAC:GOST2012-MAGMA-MAGMAOMAC:"
+        "LEGACY-GOST2012-GOST8912-GOST8912:IANA-GOST2012-GOST8912-GOST8912:"
+        "DEFAULT:@SECLEVEL=0")
     ctx.load_cert_chain(
         present, key,
         password=lambda: getpass(f"Passphrase ключа {key.name}: "))
