@@ -37,6 +37,14 @@ python3 server_https/gost_https_server.py \
     --host 0.0.0.0 --port 8443
 ```
 
+```sh
+python3 /home/alex/sandbox/server_https/gost_https_server.py \
+    --cert /home/alex/Prj/2_dev/python/ca/certificates/gost/ee/endentity_cert/certs/galex-01.crt \
+    --key  /home/alex/Prj/2_dev/python/ca/certificates/gost/ee/endentity_cert/private/galex-01.key \
+    --host 0.0.0.0 --port 8443
+```
+
+
 Если рядом с сертификатом лежит `<имя>-chain.crt`, сервер предъявляет всю
 цепочку — клиенту для проверки достаточно одного корневого сертификата.
 Тестовое хранилище (как в смоук-тестах) подставляется env `CA_CERT_BASE`.
@@ -50,6 +58,29 @@ curl использует системный OpenSSL, поэтому GOST-окр
 ```sh
 source GOST_TLS/gost/env.sh
 ```
+
+### Новые OpenSSL (3.2+): явный список шифров у клиента
+
+На новых OpenSSL (проверено на 3.5.1) GOST-шифры исключены из списка по
+умолчанию: engine загружен, `openssl engine gost -c -t` показывает
+`[ available ]`, но `openssl ciphers -v | grep -i gost` пуст (они видны только
+в `ALL:@SECLEVEL=0` — у GOST-suites `Au=unknown`, и security level их
+отсекает). Такой клиент не предлагает серверу ни одного GOST-шифра и получает
+handshake failure (alert 40). Лечится явным списком шифров:
+
+```sh
+echo | openssl s_client -connect 127.0.0.1:8443 -tls1_2 \
+    -cipher 'GOST2012-KUZNYECHIK-KUZNYECHIKOMAC:GOST2012-MAGMA-MAGMAOMAC:@SECLEVEL=0'
+
+curl -k --ciphers 'GOST2012-KUZNYECHIK-KUZNYECHIKOMAC:GOST2012-MAGMA-MAGMAOMAC:@SECLEVEL=0' \
+    https://127.0.0.1:8443/health
+```
+
+`--ciphers`/`-cipher` комбинируется с любыми рецептами ниже (`--cacert`,
+`--resolve` и т.д.). Со стороны сервера ничего делать не нужно:
+`gost_https_server.py` задаёт GOST-шифры сам (`ctx.set_ciphers`), это же
+закрывает и ванильные сборки CPython (`--with-ssl-default-suites=python`),
+у которых GOST отсутствует в дефолтном списке шифров python.
 
 ### GET /health
 
