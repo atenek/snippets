@@ -11,6 +11,11 @@
 #      python3 server_https/gost_https_server.py --cert <ee.crt> --key <ee.key>
 #      python3 server_https/gost_https_server.py --host 0.0.0.0 --port 8443
 #
+#  mTLS (user_story_006): с ключом --mtls сервер требует клиентский
+#  сертификат и проверяет его по --cafile (по умолчанию — предъявляемая
+#  цепочка <stem>-chain.crt, т.е. CA собственной иерархии). Без --mtls
+#  клиентский сертификат не запрашивается (прежнее поведение).
+#
 #  Проверка и curl-команды — см. server_https/README.md.
 # --------------------------------------------------------------------------- #
 import argparse
@@ -81,6 +86,23 @@ def resolve_cert_key(cert_arg: str | None,
     return present, ee_cert, key
 
 
+def resolve_client_ca(cafile_arg: str | None, present: Path) -> Path:
+    """CA-файл для проверки клиентских сертификатов (mTLS).
+
+    По умолчанию — предъявляемая цепочка <stem>-chain.crt: в ней im+root,
+    т.е. доверенными для клиентов становятся CA собственной иерархии сервера.
+    """
+    if cafile_arg:
+        cafile = Path(cafile_arg).resolve()
+        if not cafile.is_file():
+            ca_lib.die(f"CA-файл для mTLS не найден: {cafile}")
+        return cafile
+    if present.name.endswith("-chain.crt"):
+        return present
+    ca_lib.die(f"Рядом с {present.name} нет цепочки <stem>-chain.crt — "
+               f"укажите доверенные CA для mTLS явно: --cafile <файл>.")
+
+
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/health":
@@ -99,7 +121,13 @@ class HealthHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         cipher = self.connection.cipher()
         suite = cipher[0] if cipher else "?"
-        print(f"[{self.address_string()}] {fmt % args}  (cipher: {suite})")
+        extra = f"cipher: {suite}"
+        # При mTLS дописываем в лог CN клиентского сертификата.
+        peer = self.connection.getpeercert()
+        if peer:
+            rdns = dict(rdn[0] for rdn in peer.get("subject", ()))
+            extra += f", client: {rdns.get('commonName', '?')}"
+        print(f"[{self.address_string()}] {fmt % args}  ({extra})")
 
 
 def main() -> None:
@@ -113,7 +141,15 @@ def main() -> None:
                         help="адрес прослушивания (по умолчанию 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8443,
                         help="порт (по умолчанию 8443)")
+    parser.add_argument("--mtls", action="store_true",
+                        help="требовать клиентский сертификат (mTLS)")
+    parser.add_argument("--cafile", help="доверенные CA для проверки "
+                        "клиентских сертификатов (только с --mtls; по "
+                        "умолчанию — цепочка <stem>-chain.crt рядом с "
+                        "серверным сертификатом)")
     args = parser.parse_args()
+    if args.cafile and not args.mtls:
+        ca_lib.die("--cafile имеет смысл только вместе с --mtls.")
 
     # Построчная буферизация: лог виден сразу и при выводе в файл/pipe.
     sys.stdout.reconfigure(line_buffering=True)
@@ -136,6 +172,12 @@ def main() -> None:
         present, key,
         password=lambda: getpass(f"Passphrase ключа {key.name}: "))
 
+    client_ca = None
+    if args.mtls:
+        client_ca = resolve_client_ca(args.cafile, present)
+        ctx.verify_mode = ssl.CERT_REQUIRED
+        ctx.load_verify_locations(cafile=client_ca)
+
     subject = ca_lib._subject(ee_cert, dict(os.environ))
     server = ThreadingHTTPServer((args.host, args.port), HealthHandler)
     server.socket = ctx.wrap_socket(server.socket, server_side=True)
@@ -144,6 +186,10 @@ def main() -> None:
     print(f"Сертификат : {present}")
     print(f"Subject    : {subject}")
     print(f"Ключ       : {key}")
+    if client_ca:
+        print(f"mTLS       : включён (CA клиентов: {client_ca})")
+    else:
+        print("mTLS       : выключен")
     print(f"Endpoint   : https://{args.host}:{args.port}/health")
     print("Остановка  : Ctrl+C")
     server.serve_forever()
