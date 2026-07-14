@@ -1,0 +1,6 @@
+exec 3<>/dev/tcp/host/80
+while true; do
+  printf 'GET /health HTTP/1.1\r\nHost: host\r\nConnection: keep-alive\r\n\r\n' >&3
+  sleep 0.01
+done
+cat <&3

@@ -1,0 +1,19 @@
+import socket, time
+
+s = socket.create_connection(("host", 80))
+req = b"GET /health HTTP/1.1\r\nHost: host\r\nConnection: keep-alive\r\n\r\n"
+
+start = time.time()
+i = 0
+while True:
+    try:
+        s.sendall(req)
+        data = s.recv(4096)
+        if not data:
+            print(f"[{time.time()-start:.3f}s] Соединение закрыто сервером на запросе {i}")
+            break
+        i += 1
+    except (ConnectionResetError, BrokenPipeError) as e:
+        print(f"[{time.time()-start:.3f}s] RST/разрыв: {e}")
+        break
+    time.sleep(0.01)
