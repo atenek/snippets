@@ -35,7 +35,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--paramset",
-        help="Paramset ГОСТ-ключа (только с gost-профилем; по умолчанию A).",
+        help="Paramset ГОСТ-ключа (только с gost-профилем; "
+             "по умолчанию TCA для gost-256, A для gost-512).",
     )
     args = parser.parse_args()
 

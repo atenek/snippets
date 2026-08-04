@@ -69,9 +69,25 @@ class CryptoProfile:
 PROFILE_NAMES = ("classic", "gost-256", "gost-512")
 
 # Допустимые paramset ГОСТ-ключей (gost-engine, ГОСТ Р 34.10-2012).
+#
+# Для gost-256 буквы без префикса (A/B/C) — это legacy-алиасы на кривые
+# id-GostR3410-2001-CryptoPro-*-ParamSet (OID 1.2.643.2.2.35.*), а не на
+# native tc26-2012 параметры; настоящие id-tc26-gost-3410-2012-256-paramSet*
+# (OID 1.2.643.7.1.2.1.1.*) доступны только под префиксом TC (TCA/TCB/TCC/TCD).
+# "D" среди legacy-алиасов не существует (2001-CryptoPro его не определял) —
+# `openssl genpkey ... paramset:D` падает сырой ошибкой engine, поэтому из
+# списка исключён, остаётся только TCD.
+# Для gost-512 такого legacy-пространства нет: A/B/C сразу означают native
+# tc26-2012-512 параметры (OID 1.2.643.7.1.2.1.2.*), TC-алиасов для них нет.
 GOST_PARAMSETS = {
-    "gost-256": ("A", "B", "C", "D", "TCA", "TCB", "TCC", "TCD"),
+    "gost-256": ("A", "B", "C", "TCA", "TCB", "TCC", "TCD"),
     "gost-512": ("A", "B", "C"),
+}
+
+# Paramset по умолчанию (когда --paramset не задан) для каждого gost-профиля.
+GOST_DEFAULT_PARAMSET = {
+    "gost-256": "TCA",  # native tc26-2012, НЕ legacy 2001-CryptoPro "A"
+    "gost-512": "A",    # уже native tc26-2012-512
 }
 
 
@@ -170,7 +186,7 @@ def get_profile(name: str, paramset: str | None = None) -> CryptoProfile:
         return CryptoProfile("classic", "sha256", ("genrsa",), "", None)
     if name not in GOST_PARAMSETS:
         die(f"Неизвестный криптопрофиль: {name}. Допустимо: {', '.join(PROFILE_NAMES)}.")
-    ps = (paramset or "A").upper()
+    ps = (paramset or GOST_DEFAULT_PARAMSET[name]).upper()
     valid = GOST_PARAMSETS[name]
     if ps not in valid:
         die(f"Недопустимый paramset '{ps}' для {name}. Допустимо: {', '.join(valid)}.")

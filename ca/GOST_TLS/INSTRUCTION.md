@@ -145,8 +145,16 @@ echo -n "The quick brown fox jumps over the lazy dog" | openssl dgst -md_gost12_
 ```
 
 **Подпись (ГОСТ Р 34.10‑2012):**
+
+Для `gost2012_256` голые буквы `paramset:A/B/C` — это legacy-алиасы на
+id-GostR3410-2001-CryptoPro-*-ParamSet (OID `1.2.643.2.2.35.*`), а не на
+native tc26-2012 параметры; настоящие id-tc26-gost-3410-2012-256-paramSet*
+(OID `1.2.643.7.1.2.1.1.*`) требуют префикса `TC`: `paramset:TCA/TCB/TCC/TCD`.
+Для `gost2012_512` такой развилки нет — `paramset:A/B/C` сразу означают
+native tc26-2012-512.
+
 ```bash
-openssl genpkey -algorithm gost2012_256 -pkeyopt paramset:A -out key.pem
+openssl genpkey -algorithm gost2012_256 -pkeyopt paramset:TCA -out key.pem
 openssl pkey -in key.pem -pubout -out pub.pem
 openssl dgst -md_gost12_256 -sign key.pem -out sig.bin data.txt
 openssl dgst -md_gost12_256 -verify pub.pem -signature sig.bin data.txt   # Verified OK
@@ -170,9 +178,9 @@ openssl ciphers -v 'aGOST'
 **Живое TLS‑рукопожатие на ГОСТ:**
 ```bash
 # 1) ГОСТ-сертификаты (CA + сервер)
-openssl genpkey -algorithm gost2012_256 -pkeyopt paramset:A -out ca.key
+openssl genpkey -algorithm gost2012_256 -pkeyopt paramset:TCA -out ca.key
 openssl req -x509 -new -key ca.key -md_gost12_256 -days 365 -out ca.crt -subj "/CN=GOST CA"
-openssl genpkey -algorithm gost2012_256 -pkeyopt paramset:A -out srv.key
+openssl genpkey -algorithm gost2012_256 -pkeyopt paramset:TCA -out srv.key
 openssl req -new -key srv.key -md_gost12_256 -out srv.csr -subj "/CN=localhost"
 openssl x509 -req -in srv.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
         -md_gost12_256 -days 365 -out srv.crt

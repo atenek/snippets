@@ -12,8 +12,31 @@ CA выпускает сертификаты в одном из криптопр
 
 Профиль задаётся параметром `--profile`; без него при интерактивном запуске
 предлагается меню (Enter — `classic`). Для gost-профилей дополнительно доступен
-`--paramset` (по умолчанию `A`; для gost-256 — `A,B,C,D,TCA,TCB,TCC,TCD`,
-для gost-512 — `A,B,C`).
+`--paramset` — набор эллиптических параметров ключа ГОСТ Р 34.10-2012.
+
+### `--paramset`: набор параметров ключа ГОСТ
+
+У gost-engine буквенные коды `A/B/C` для `gost2012_256` исторически означают
+**старые** (2001-CryptoPro) кривые, а не native-2012: они добавлены для
+совместимости со старой PKI-инфраструктурой на CryptoPro CSP, а не потому что
+это правильный выбор по умолчанию. Настоящие 2012-параметры доступны только
+под кодами с префиксом `TC`. Для `gost2012_512` такого разделения нет — там
+`A/B/C` сразу означают native-2012 параметры.
+
+| Профиль | `--paramset` | OID кривой | Стандарт |
+|---|---|---|---|
+| `gost-256` | `A` / `B` / `C` | `id-GostR3410-2001-CryptoPro-{A,B,C}-ParamSet` (`1.2.643.2.2.35.*`) | legacy, ГОСТ Р 34.10-2001 |
+| `gost-256` | `TCA` / `TCB` / `TCC` / `TCD` (**по умолчанию `TCA`**) | `id-tc26-gost-3410-2012-256-paramSet{A,B,C,D}` (`1.2.643.7.1.2.1.1.*`) | ГОСТ Р 34.10-2012 |
+| `gost-512` | `A` / `B` / `C` (**по умолчанию `A`**) | `id-tc26-gost-3410-12-512-paramSet{A,B,C}` (`1.2.643.7.1.2.1.2.*`) | ГОСТ Р 34.10-2012 |
+
+Если нужна именно легаси-2001-совместимость для `gost-256` (например, для
+интеграции со старым CryptoPro CSP), явно укажите `--paramset A` (или `B`/`C`) —
+без флага всегда используется native-2012 `TCA`.
+
+Проверить, какой OID реально попал в ключ/сертификат:
+```sh
+openssl asn1parse -in <cert.crt> | grep -i object
+```
 
 Профиль выпускаемого сертификата всегда совпадает с профилем подписанта:
 хранилища classic и gost раздельны, подписант предлагается только из хранилища
@@ -32,8 +55,8 @@ GOST-профили работают через gost-engine из `GOST_TLS/gost/
 ```sh
 python3 rootCA/mgmt/rootCA_init.py                          # интерактивно (меню профиля)
 python3 rootCA/mgmt/rootCA_init.py --cn root                # classic
-python3 rootCA/mgmt/rootCA_init.py --cn groot --profile gost-256
-python3 rootCA/mgmt/rootCA_init.py --cn groot --profile gost-512
+python3 rootCA/mgmt/rootCA_init.py --cn root-gost256 --profile gost-256
+python3 rootCA/mgmt/rootCA_init.py --cn root-gost512 --profile gost-512
 ```
 
 ## Intermediate CA
@@ -42,8 +65,8 @@ python3 rootCA/mgmt/rootCA_init.py --cn groot --profile gost-512
 
 ```sh
 python3 imCA/mgmt/imCA_init.py
-python3 imCA/mgmt/imCA_init.py --cn gim --profile gost-256
-python3 imCA/mgmt/imCA_init.py --cn gim --profile gost-512
+python3 imCA/mgmt/imCA_init.py --cn im-gost256 --profile gost-256
+python3 imCA/mgmt/imCA_init.py --cn im-gost512 --profile gost-512
 ```
 
 ## End Entity
@@ -52,8 +75,8 @@ python3 imCA/mgmt/imCA_init.py --cn gim --profile gost-512
 
 ```sh
 python3 endentity/mgmt/endentity_init.py
-python3 endentity/mgmt/endentity_init.py --cn galex --profile gost-256
-python3 endentity/mgmt/endentity_init.py --cn galex --profile gost-512
+python3 endentity/mgmt/endentity_init.py --cn rserv001-gost256 --profile gost-256
+python3 endentity/mgmt/endentity_init.py --cn rserv002-gost512 --profile gost-512
 ```
 
 Для gost-профилей в меню шаблонов предлагаются только `*_gost.cnf`
@@ -67,9 +90,8 @@ python3 utils/cert_view.py $CERT_PATH
 python3 utils/cert_view.py --gost $CERT_PATH
 ```
 
-Просмотр GOST-сертификата — с флагом `--gost` (openssl выполняется под
-GOST-окружением); без флага GOST-режим пробуется автоматически, если системный
-openssl не смог разобрать объект:
+Просмотр GOST-сертификата — с флагом `--gost` (openssl выполняется под GOST-окружением); 
+без флага GOST-режим пробуется автоматически, если системный openssl не смог разобрать объект:
 
 ```sh
 python3 utils/cert_view.py --gost certificates/gost/ee/endentity_cert/certs/galex-01.crt

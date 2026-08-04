@@ -35,7 +35,11 @@ echo -n x | openssl dgst -md_gost12_512 >/dev/null 2>&1 && ok "Streebog-512 avai
 echo "== 3. Signature: GOST R 34.10-2012 =="
 echo "sign me" > "$W/d.txt"
 for PS in 256 512; do
-  openssl genpkey -algorithm gost2012_$PS -pkeyopt paramset:A -out "$W/k$PS.pem" 2>/dev/null
+  # gost2012_256 bare letters (A/B/C) are legacy 2001-CryptoPro aliases;
+  # native tc26-2012-256 paramsets need the TC-prefixed codes (TCA/TCB/TCC/TCD).
+  # gost2012_512 has no such legacy split — bare A/B/C are already tc26-2012-512.
+  GOST_PS=$([ "$PS" = 256 ] && echo TCA || echo A)
+  openssl genpkey -algorithm gost2012_$PS -pkeyopt paramset:$GOST_PS -out "$W/k$PS.pem" 2>/dev/null
   openssl pkey -in "$W/k$PS.pem" -pubout -out "$W/p$PS.pem" 2>/dev/null
   openssl dgst -md_gost12_$PS -sign "$W/k$PS.pem" -out "$W/s$PS.bin" "$W/d.txt" 2>/dev/null
   if openssl dgst -md_gost12_$PS -verify "$W/p$PS.pem" -signature "$W/s$PS.bin" "$W/d.txt" 2>/dev/null | grep -q "Verified OK"; then
@@ -48,9 +52,9 @@ for C in kuznyechik-cbc magma-cbc gost89; do
 done
 
 echo "== 5. GOST-TLS live handshake =="
-openssl genpkey -algorithm gost2012_256 -pkeyopt paramset:A -out "$W/ca.key" 2>/dev/null
+openssl genpkey -algorithm gost2012_256 -pkeyopt paramset:TCA -out "$W/ca.key" 2>/dev/null
 openssl req -x509 -new -key "$W/ca.key" -md_gost12_256 -days 1 -out "$W/ca.crt" -subj "/CN=GOST CA" 2>/dev/null
-openssl genpkey -algorithm gost2012_256 -pkeyopt paramset:A -out "$W/srv.key" 2>/dev/null
+openssl genpkey -algorithm gost2012_256 -pkeyopt paramset:TCA -out "$W/srv.key" 2>/dev/null
 openssl req -new -key "$W/srv.key" -md_gost12_256 -out "$W/srv.csr" -subj "/CN=localhost" 2>/dev/null
 openssl x509 -req -in "$W/srv.csr" -CA "$W/ca.crt" -CAkey "$W/ca.key" -CAcreateserial \
   -md_gost12_256 -days 1 -out "$W/srv.crt" 2>/dev/null
